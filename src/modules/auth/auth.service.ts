@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import prisma from "../../config/prisma";
 import { generateToken } from "../../lib/jwt";
 import { sendOtpEmail } from "../../lib/email";
+import otpService from "../otp/otp.service";
 
 //////////////////////////////////////
 // REGISTER
