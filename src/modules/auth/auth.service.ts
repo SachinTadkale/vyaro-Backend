@@ -62,7 +62,6 @@ export const login = async (data: any) => {
 
   if (!user) throw new Error("Invalid credentials");
 
-  // 🚫 BLOCK CHECK
   if (user.isBlocked) {
     throw new Error("Your account is blocked by admin.");
   }
@@ -74,7 +73,6 @@ export const login = async (data: any) => {
 
   if (!isMatch) throw new Error("Invalid credentials");
 
-  // ADMIN can login anytime (except blocked)
   if (user.role !== "ADMIN") {
     if (user.verificationStatus === "PENDING") {
       throw new Error("Your documents are under verification.");
@@ -110,17 +108,14 @@ export const requestOtp = async (data: any) => {
 
   if (!user) throw new Error("User not found");
 
-  // 🚫 BLOCK CHECK
   if (user.isBlocked) {
     throw new Error("Your account is blocked by admin.");
   }
 
-  // Block Admin OTP login
   if (user.role === "ADMIN") {
     throw new Error("Admin cannot login using OTP");
   }
 
-  // Only approved users can request OTP
   if (user.verificationStatus !== "APPROVED") {
     throw new Error("Account not approved.");
   }
@@ -129,9 +124,7 @@ export const requestOtp = async (data: any) => {
     100000 + Math.random() * 900000
   ).toString();
 
-  const expiresAt = new Date(
-    Date.now() + 5 * 60 * 1000
-  );
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
   await prisma.otp.updateMany({
     where: {
@@ -167,7 +160,6 @@ export const loginWithOtp = async (data: any) => {
 
   if (!user) throw new Error("Invalid request");
 
-  // 🚫 BLOCK CHECK
   if (user.isBlocked) {
     throw new Error("Your account is blocked by admin.");
   }
