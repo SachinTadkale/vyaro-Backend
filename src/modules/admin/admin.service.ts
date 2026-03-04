@@ -1,5 +1,8 @@
 import prisma from "../../config/prisma";
-import { sendSMS } from "../../lib/fast2sms";
+import {
+  sendApprovalEmail,
+  sendRejectionEmail,
+} from "../../lib/email";
 
 // Get pending KYC users
 export const getPendingKyc = async () => {
@@ -36,7 +39,7 @@ export const verifyUser = async (userId: string) => {
   });
 
   const message =
-    "Your Farmzy account has been verified. You can now login.";
+    "Your account has been verified. You can now login.";
 
   await prisma.notification.create({
     data: {
@@ -45,7 +48,7 @@ export const verifyUser = async (userId: string) => {
     },
   });
 
-  await sendSMS(user.phone_no, message);
+  await sendApprovalEmail(user.email, user.name);
 
   return { message: "User approved successfully" };
 };
@@ -69,8 +72,8 @@ export const rejectUser = async (
   });
 
   const message = reason
-    ? `Your Farmzy account verification was rejected. Reason: ${reason}`
-    : "Your Farmzy account verification was rejected.";
+    ? `Your account verification was rejected. Reason: ${reason}`
+    : "Your account verification was rejected.";
 
   await prisma.notification.create({
     data: {
@@ -79,7 +82,51 @@ export const rejectUser = async (
     },
   });
 
-  await sendSMS(user.phone_no, message);
+  await sendRejectionEmail(
+    user.email,
+    user.name,
+    reason
+  );
 
   return { message: "User rejected successfully" };
+};
+
+// Block user
+export const blockUser = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!user) throw new Error("User not found");
+
+  if (user.isBlocked) {
+    throw new Error("User already blocked");
+  }
+
+  await prisma.user.update({
+    where: { user_id: userId },
+    data: { isBlocked: true },
+  });
+
+  return { message: "User blocked successfully" };
+};
+
+// Unblock user
+export const unblockUser = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { user_id: userId },
+  });
+
+  if (!user) throw new Error("User not found");
+
+  if (!user.isBlocked) {
+    throw new Error("User is not blocked");
+  }
+
+  await prisma.user.update({
+    where: { user_id: userId },
+    data: { isBlocked: false },
+  });
+
+  return { message: "User unblocked successfully" };
 };

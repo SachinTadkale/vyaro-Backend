@@ -1,41 +1,51 @@
 import { Request, Response } from "express";
 import * as kycService from "./kyc.service";
-import { kycSchema } from "./kyc.validation";
 import { uploadToCloudinary } from "../../lib/cloudinary";
 
-export const uploadKyc = async (req: Request, res: Response) => {
-  const parsed = kycSchema.parse(req.body);
+export const uploadKyc = async (
+  req: any,
+  res: Response
+) => {
+  try {
+    const userId = req.user.userId;
 
-  const files = req.files as {
-    frontImage?: Express.Multer.File[];
-    backImage?: Express.Multer.File[];
-  };
+    if (!req.files || !req.files.frontImage) {
+      throw new Error("Front image is required");
+    }
 
-  if (!files?.frontImage) {
-    return res.status(400).json({ message: "Front image is required" });
-  }
-
-  const frontUpload = await uploadToCloudinary(
-    files.frontImage[0].path
-  );
-
-  let backUpload;
-
-  if (files.backImage) {
-    backUpload = await uploadToCloudinary(
-      files.backImage[0].path
+    // Upload front image
+    const frontUpload = await uploadToCloudinary(
+      req.files.frontImage[0].path
     );
+
+    const frontImageUrl = frontUpload.url; // ✅ extract only URL
+
+    let backImageUrl: string | undefined;
+
+    if (req.files.backImage) {
+      const backUpload = await uploadToCloudinary(
+        req.files.backImage[0].path
+      );
+
+      backImageUrl = backUpload.url; // ✅ extract only URL
+    }
+
+    const result = await kycService.createKyc(
+      userId,
+      req.body,
+      frontImageUrl,
+      backImageUrl
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: result.message,
+      data: result.kyc,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
-
-  const kyc = await kycService.createKyc(
-    req.user.userId,
-    parsed,
-    frontUpload.url,
-    backUpload?.url
-  );
-
-  res.status(201).json({
-    success: true,
-    data: kyc,
-  });
 };

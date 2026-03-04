@@ -5,11 +5,12 @@ import {
   approveUser,
   getPendingUsers,
   rejectUser,
+  blockUser,
+  unblockUser,
 } from "./admin.controller";
 
 const router = Router();
 
-// Get all pending KYC users
 router.get(
   "/users/pending-kyc",
   authMiddleware,
@@ -17,7 +18,6 @@ router.get(
   getPendingUsers
 );
 
-// Approve user
 router.patch(
   "/users/:id/approve",
   authMiddleware,
@@ -25,12 +25,25 @@ router.patch(
   approveUser
 );
 
-// Reject user
 router.patch(
   "/users/:id/reject",
   authMiddleware,
   adminOnly,
   rejectUser
+);
+
+router.patch(
+  "/users/:id/block",
+  authMiddleware,
+  adminOnly,
+  blockUser
+);
+
+router.patch(
+  "/users/:id/unblock",
+  authMiddleware,
+  adminOnly,
+  unblockUser
 );
 
 export default router;

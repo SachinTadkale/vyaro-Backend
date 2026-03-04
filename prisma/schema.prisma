@@ -17,8 +17,9 @@ model User {
   phone_no           String   @unique
   password           String
   address            String
-  email              String?  @unique
+  email              String   @unique
   gender             String?
+  isBlocked          Boolean  @default(false)
   role               String   @default("USER")
   verificationStatus String   @default("PENDING")
   registrationStep   Int      @default(1)
@@ -54,6 +55,7 @@ model Company {
   gstNumber      String   @unique
   verification   String   @default("PENDING")
   createdAt      DateTime @default(now())
+  isBlocked      Boolean  @default(false)
 
   inventories Inventory[]
   orders      Order[]
@@ -86,8 +88,14 @@ model MarketListing {
   listingId   String   @id @default(uuid())
   sellerId    String
   productId   String
-  listingType String
+
+  price       Float
+  quantity    Float
+  minOrder    Float?
+
+  listingType String   @default("SELL")
   status      String   @default("ACTIVE")
+
   createdAt   DateTime @default(now())
 
   seller  User    @relation(fields: [sellerId], references: [user_id], onDelete: Cascade)
