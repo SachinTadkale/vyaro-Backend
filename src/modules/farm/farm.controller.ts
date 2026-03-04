@@ -1,14 +1,22 @@
 import { Request, Response } from "express";
 import * as farmService from "./farm.service";
-import { farmSchema } from "./farm.validation";
 
-export const addFarm = async (req: Request, res: Response) => {
-  const parsed = farmSchema.parse(req.body);
+export const addFarm = async (req: any, res: Response) => {
+  try {
+    const result = await farmService.createFarm(
+      req.user.userId,
+      req.body
+    );
 
-  const farm = await farmService.createFarm(req.user.userId, parsed);
-
-  res.status(201).json({
-    success: true,
-    data: farm,
-  });
+    return res.status(201).json({
+      success: true,
+      message: result.message,
+      data: result.farm,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };

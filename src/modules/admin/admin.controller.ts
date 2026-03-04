@@ -28,7 +28,6 @@ export const approveUser = async (
 ) => {
   try {
     const userId = req.params.id as string;
-
     const result = await adminService.verifyUser(userId);
 
     return res.status(200).json({
@@ -56,6 +55,48 @@ export const rejectUser = async (
       userId,
       reason
     );
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Block user
+export const blockUser = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userId = req.params.id as string;
+    const result = await adminService.blockUser(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Unblock user
+export const unblockUser = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userId = req.params.id as string;
+    const result = await adminService.unblockUser(userId);
 
     return res.status(200).json({
       success: true,

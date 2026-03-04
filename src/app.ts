@@ -9,6 +9,7 @@ import userRoutes from "./modules/user/user.routes";
 import farmRoutes from "./modules/farm/farm.routes";
 import bankRoutes from "./modules/bank/bank.routes";
 import kycRoutes from "./modules/kyc/kyc.routes";
+import productRoutes from "./modules/product/product.routes";
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/farm", farmRoutes);
 app.use("/api/bank", bankRoutes);
 app.use("/api/kyc", kycRoutes);
+app.use("/api/products", productRoutes);
 
 
 /* ---------------- HEALTH CHECK ---------------- */

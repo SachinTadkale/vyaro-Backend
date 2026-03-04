@@ -12,7 +12,11 @@ export const createFarm = async (userId: string, data: any) => {
   const farm = await prisma.farmDetails.create({
     data: {
       userId,
-      ...data,
+      state: data.state,
+      district: data.district,
+      village: data.village,
+      pincode: data.pincode,
+      landArea: data.landArea,
     },
   });
 
@@ -21,5 +25,8 @@ export const createFarm = async (userId: string, data: any) => {
     data: { registrationStep: 2 },
   });
 
-  return farm;
+  return {
+    message: "Farm details added successfully",
+    farm,
+  };
 };

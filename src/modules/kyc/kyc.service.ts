@@ -32,5 +32,9 @@ export const createKyc = async (
     },
   });
 
-  return kyc;
+  return {
+    message:
+      "Your details have been submitted successfully. Your account is under verification. You will receive an email once approved.",
+    kyc,
+  };
 };

@@ -2,12 +2,15 @@ import { Router } from "express";
 import {
   registerUser,
   loginUser,
+  requestOtpController,
+  loginWithOtpController,
 } from "./auth.controller";
-import { upload } from "../upload/upload.middleware";
 
 const router = Router();
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+router.post("/requestOtp", requestOtpController);
+router.post("/loginWithOtp", loginWithOtpController);
 
 export default router;
