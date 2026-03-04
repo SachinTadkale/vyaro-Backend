@@ -89,6 +89,7 @@ export const blockUser = async (
   }
 };
 
+
 // Unblock user
 export const unblockUser = async (
   req: Request,
