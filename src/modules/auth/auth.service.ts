@@ -1,8 +1,7 @@
 import bcrypt from "bcrypt";
 import prisma from "../../config/prisma";
 import { generateToken } from "../../lib/jwt";
-import { sendOtpEmail } from "../../lib/email";
-import otpService from "../otp/otp.service";
+import { sendOtpEmail, sendPasswordResetOtp } from "../../lib/email";
 
 //////////////////////////////////////
 // REGISTER
@@ -208,4 +207,101 @@ export const loginWithOtp = async (data: any) => {
   });
 
   return { token };
+};
+
+//////////////////////////////////////
+// FORGOT PASSWORD
+//////////////////////////////////////
+
+export const forgotPassword = async (data: any) => {
+  const user = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (user.isBlocked) {
+    throw new Error("Your account is blocked by admin.");
+  }
+
+  const otpCode = Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
+
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+  // Invalidate previous OTPs
+  await prisma.otp.updateMany({
+    where: {
+      userId: user.user_id,
+      type: "PASSWORD_RESET",
+      isUsed: false,
+    },
+    data: { isUsed: true },
+  });
+
+  await prisma.otp.create({
+    data: {
+      userId: user.user_id,
+      code: otpCode,
+      type: "PASSWORD_RESET",
+      expiresAt,
+    },
+  });
+
+  await sendPasswordResetOtp(user.email, user.name, otpCode);
+
+  return { message: "Password reset OTP sent to email." };
+};
+
+//////////////////////////////////////
+// RESET PASSWORD
+//////////////////////////////////////
+
+export const resetPassword = async (data: any) => {
+  const user = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (data.newPassword !== data.confirmPassword) {
+    throw new Error("Passwords do not match");
+  }
+
+  const otpRecord = await prisma.otp.findFirst({
+    where: {
+      userId: user.user_id,
+      code: data.otp,
+      type: "PASSWORD_RESET",
+      isUsed: false,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otpRecord) {
+    throw new Error("Invalid OTP");
+  }
+
+  if (otpRecord.expiresAt < new Date()) {
+    throw new Error("OTP expired");
+  }
+
+  const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+
+  await prisma.user.update({
+    where: { user_id: user.user_id },
+    data: { password: hashedPassword },
+  });
+
+  await prisma.otp.update({
+    where: { otpId: otpRecord.otpId },
+    data: { isUsed: true },
+  });
+
+  return { message: "Password reset successful" };
 };

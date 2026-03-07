@@ -71,3 +71,26 @@ export const sendOtpEmail = async (
     `,
   });
 };
+
+export const sendPasswordResetOtp = async (
+  to: string,
+  name: string,
+  otp: string
+) => {
+  await transporter.sendMail({
+    from: `"Farmzy Support" <${process.env.SMTP_USER}>`,
+    to,
+    subject: "Reset Your Farmzy Password",
+    html: `
+      <h2>Hello ${name},</h2>
+      <p>You requested to reset your password.</p>
+      <p>Your OTP is:</p>
+      <h1>${otp}</h1>
+      <p>This OTP is valid for 5 minutes.</p>
+      <br/>
+      <p>If you did not request this, please ignore this email.</p>
+      <br/>
+      <p>Farmzy Team</p>
+    `,
+  });
+};

@@ -77,3 +77,41 @@ export const loginWithOtpController = async (
     });
   }
 };
+
+export const forgotPasswordController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const result = await authService.forgotPassword(req.body);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const resetPasswordController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const result = await authService.resetPassword(req.body);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
