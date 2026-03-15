@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { OtpType, UserRole, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { generateToken } from "../../lib/jwt";
 import { sendOtpEmail, sendPasswordResetOtp } from "../../lib/email";
@@ -34,9 +35,8 @@ export const register = async (data: any) => {
       address: data.address,
       email: data.email,
       gender: data.gender,
-      role: "USER",
-      verificationStatus: "PENDING",
-      registrationStep: 1,
+      verificationStatus: VerificationStatus.PENDING,
+      role: UserRole.USER,
     },
   });
 
@@ -73,21 +73,68 @@ export const login = async (data: any) => {
 
   if (!isMatch) throw new Error("Invalid credentials");
 
-  if (user.role !== "ADMIN") {
-    if (user.verificationStatus === "PENDING") {
-      throw new Error("Your documents are under verification.");
-    }
+  if (user.role === UserRole.ADMIN) {
+    const token = generateToken({
+      userId: user.user_id,
+      type: "LOGIN",
+      isUsed: false,
+    },
+    data: { isUsed: true },
+  });
 
-    if (user.verificationStatus === "REJECTED") {
-      throw new Error(
-        "Your verification was rejected. Contact support."
-      );
-    }
+  await prisma.otp.create({
+    data: {
+      userId: user.user_id,
+      code: otpCode,
+      type: "LOGIN",
+      expiresAt,
+    },
+  });
 
-    if (user.verificationStatus !== "APPROVED") {
-      throw new Error("Unable to login.");
-    }
+  await sendOtpEmail(user.email, user.name, otpCode);
+
+  return { message: "OTP sent to your email." };
+};
+
+//////////////////////////////////////
+// LOGIN WITH OTP
+//////////////////////////////////////
+
+export const loginWithOtp = async (data: any) => {
+  const user = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (!user) throw new Error("Invalid request");
+
+  if (user.isBlocked) {
+    throw new Error("Your account is blocked by admin.");
   }
+
+  if (user.role === "ADMIN") {
+    throw new Error("Admin cannot login using OTP");
+  }
+
+  if (user.verificationStatus === VerificationStatus.PENDING) {
+    throw new Error("Your documents are under review.");
+  }
+
+  if (user.verificationStatus === VerificationStatus.REJECTED) {
+    throw new Error("Your documents were rejected.");
+  }
+
+  if (user.verificationStatus === VerificationStatus.VERIFIED) {
+    const token = generateToken({
+      userId: user.user_id,
+      role: user.role,
+    });
+    return { token };
+  }
+
+  await prisma.otp.update({
+    where: { otpId: otpRecord.otpId },
+    data: { isUsed: true },
+  });
 
   const token = generateToken({
     userId: user.user_id,
@@ -95,6 +142,61 @@ export const login = async (data: any) => {
   });
 
   return { token };
+};
+
+//////////////////////////////////////
+// FORGOT PASSWORD
+//////////////////////////////////////
+
+export const forgotPassword = async (data: any) => {
+  const user = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (!user) throw new Error("User not found!!!");
+  // Verify OTP from otp table
+  await otpService.verifyOtp(user.user_id, data.otp, OtpType.LOGIN);
+
+  // ADMIN Bypass
+  if (user.role === UserRole.ADMIN) {
+    const token = generateToken({
+      userId: user.user_id,
+      role: user.role,
+    });
+    return { token, user };
+  }
+
+  if (user.isBlocked) {
+    throw new Error("Your account is blocked by admin.");
+  }
+
+  if (user.verificationStatus === VerificationStatus.PENDING) {
+    throw new Error("Your documents are under review.");
+  }
+
+  if (user.verificationStatus === VerificationStatus.REJECTED) {
+    throw new Error("Your documents were rejected.");
+  }
+
+  if (user.verificationStatus === VerificationStatus.VERIFIED) {
+    const token = generateToken({
+      userId: user.user_id,
+      code: data.otp,
+      type: "PASSWORD_RESET",
+      isUsed: false,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otpRecord) {
+    throw new Error("Invalid OTP");
+  }
+
+  if (otpRecord.expiresAt < new Date()) {
+    throw new Error("OTP expired");
+  }
+
+  throw new Error("Unable to login");
 };
 
 //////////////////////////////////////
@@ -120,9 +222,7 @@ export const requestOtp = async (data: any) => {
     throw new Error("Account not approved.");
   }
 
-  const otpCode = Math.floor(
-    100000 + Math.random() * 900000
-  ).toString();
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -226,9 +326,7 @@ export const forgotPassword = async (data: any) => {
     throw new Error("Your account is blocked by admin.");
   }
 
-  const otpCode = Math.floor(
-    100000 + Math.random() * 900000
-  ).toString();
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 

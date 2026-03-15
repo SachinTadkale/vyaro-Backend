@@ -1,3 +1,4 @@
+import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 
 export const createKyc = async (
@@ -28,13 +29,9 @@ export const createKyc = async (
     where: { user_id: userId },
     data: {
       registrationStep: 4,
-      verificationStatus: "PENDING",
+      verificationStatus: VerificationStatus.PENDING,
     },
   });
 
-  return {
-    message:
-      "Your details have been submitted successfully. Your account is under verification. You will receive an email once approved.",
-    kyc,
-  };
+  return kyc;
 };

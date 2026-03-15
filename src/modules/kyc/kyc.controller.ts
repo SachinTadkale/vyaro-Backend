@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import * as kycService from "./kyc.service";
-import { uploadToCloudinary } from "../../lib/cloudinary";
+import { kycSchema } from "./kyc.validation";
+import { uploadToCloudinary } from "../../config/cloudinary";
 
 export const uploadKyc = async (
   req: any,

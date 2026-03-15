@@ -7,7 +7,7 @@ import {
 } from "./product.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import { verifiedOnly } from "../../middleware/verification.middleware";
-import { upload } from "../upload/upload.middleware";
+import { upload } from "../../middleware/upload.middleware";
 
 const router = Router();
 
@@ -16,7 +16,7 @@ const router = Router();
 //////////////////////////////////////
 
 router.post(
-  "/",
+  "/add-product",
   authMiddleware,
   verifiedOnly,
   upload.single("productImage"),
@@ -24,21 +24,21 @@ router.post(
 );
 
 router.get(
-  "/my",
+  "/get-product",
   authMiddleware,
   verifiedOnly,
   getMyProducts
 );
 
 router.patch(
-  "/:id",
+  "/udpate-product/:id",
   authMiddleware,
   upload.single("productImage"),
   updateProduct
 );
 
 router.delete(
-  "/:id",
+  "/delete-product/:id",
   authMiddleware,
   deleteProduct
 );

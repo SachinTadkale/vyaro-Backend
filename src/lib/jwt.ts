@@ -9,7 +9,9 @@ if (!JWT_SECRET) {
 
 export type JwtPayload = {
   userId: string;
-  role: string;
+  role?: UserRole;
+  companyId?: string;
+  actorType?: "USER" | "COMPANY";
 };
 
 export const generateToken = (payload: JwtPayload) => {

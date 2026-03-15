@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as authService from "./auth.service";
+import { uploadToCloudinary } from "../../config/cloudinary";
 
 export const registerUser = async (
   req: Request,

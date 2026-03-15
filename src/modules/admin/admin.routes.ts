@@ -2,8 +2,11 @@ import { Router } from "express";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import { adminOnly } from "../../middleware/admin.middleware";
 import {
+  approveCompany,
   approveUser,
+  getPendingCompanies,
   getPendingUsers,
+  rejectCompany,
   rejectUser,
   blockUser,
   unblockUser,
@@ -18,6 +21,28 @@ router.get(
   getPendingUsers
 );
 
+router.get(
+  "/companies/pending-verification",
+  authMiddleware,
+  adminOnly,
+  getPendingCompanies
+);
+
+router.patch(
+  "/companies/:id/approve",
+  authMiddleware,
+  adminOnly,
+  approveCompany
+);
+
+router.patch(
+  "/companies/:id/reject",
+  authMiddleware,
+  adminOnly,
+  rejectCompany
+);
+
+// Approve user
 router.patch(
   "/users/:id/approve",
   authMiddleware,
@@ -30,20 +55,6 @@ router.patch(
   authMiddleware,
   adminOnly,
   rejectUser
-);
-
-router.patch(
-  "/users/:id/block",
-  authMiddleware,
-  adminOnly,
-  blockUser
-);
-
-router.patch(
-  "/users/:id/unblock",
-  authMiddleware,
-  adminOnly,
-  unblockUser
 );
 
 export default router;

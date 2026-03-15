@@ -1,9 +1,9 @@
 import prisma from "../../config/prisma";
 
-export const addBank = async (userId: string, data: any) => {
-  const existing = await prisma.bankDetails.findUnique({
-    where: { userId },
-  });
+  export const addBank = async (userId: string, data: any) => {
+    const existing = await prisma.bankDetails.findFirst({
+      where: { userId },
+    });
 
   if (existing) {
     throw new Error("Bank details already added");
@@ -24,8 +24,5 @@ export const addBank = async (userId: string, data: any) => {
     data: { registrationStep: 3 },
   });
 
-  return {
-    message: "Bank details added successfully",
-    bank,
+    return bank;
   };
-};

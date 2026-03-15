@@ -21,6 +21,70 @@ export const getPendingUsers = async (
   }
 };
 
+// Get pending companies
+export const getPendingCompanies = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const companies = await adminService.getPendingCompanyVerifications();
+
+    return res.status(200).json({
+      success: true,
+      data: companies,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Something went wrong",
+    });
+  }
+};
+
+// Approve company
+export const approveCompany = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const companyId = req.params.id as string;
+
+    const result = await adminService.approveCompany(companyId);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Reject company
+export const rejectCompany = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const companyId = req.params.id as string;
+
+    const result = await adminService.rejectCompany(companyId);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // Approve user
 export const approveUser = async (
   req: Request,
@@ -55,49 +119,6 @@ export const rejectUser = async (
       userId,
       reason
     );
-
-    return res.status(200).json({
-      success: true,
-      message: result.message,
-    });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// Block user
-export const blockUser = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const userId = req.params.id as string;
-    const result = await adminService.blockUser(userId);
-
-    return res.status(200).json({
-      success: true,
-      message: result.message,
-    });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-
-// Unblock user
-export const unblockUser = async (
-  req: Request,
-  res: Response
-) => {
-  try {
-    const userId = req.params.id as string;
-    const result = await adminService.unblockUser(userId);
 
     return res.status(200).json({
       success: true,

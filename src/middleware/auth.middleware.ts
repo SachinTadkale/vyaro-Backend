@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import { NextFunction, Request, Response } from "express";
+import { JwtPayload, verifyToken } from "../lib/jwt";
 
 export const authMiddleware = (
-  req: any,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -17,17 +17,13 @@ export const authMiddleware = (
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET!
-    ) as {
-      userId: string;
-      role: string;
-    };
+    const decoded: JwtPayload = verifyToken(token);
 
     req.user = {
       userId: decoded.userId,
       role: decoded.role,
+      companyId: decoded.companyId,
+      actorType: decoded.actorType ?? (decoded.companyId ? "COMPANY" : "USER"),
     };
 
     next();

@@ -1,14 +1,11 @@
+import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
-import {
-  sendApprovalEmail,
-  sendRejectionEmail,
-} from "../../lib/email";
 
 // Get pending KYC users
 export const getPendingKyc = async () => {
   return prisma.user.findMany({
     where: {
-      verificationStatus: "PENDING",
+      verificationStatus: VerificationStatus.PENDING,
       kyc: {
         isNot: null,
       },
@@ -19,6 +16,77 @@ export const getPendingKyc = async () => {
   });
 };
 
+// Get pending KYC Comapanies
+export const getPendingCompanyVerifications = async () => {
+  return prisma.company.findMany({
+    where: {
+      verification: VerificationStatus.PENDING,
+      gstCertificateUrl: {
+        not: null,
+      },
+      licenseDocUrl: {
+        not: null,
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
+// Approve company
+export const approveCompany = async (companyId: string) => {
+  const company = await prisma.company.findUnique({
+    where: { companyId },
+  });
+
+  if (!company) throw new Error("Company not found");
+
+  if (!company.gstCertificateUrl || !company.licenseDocUrl) {
+    throw new Error("Company documents are not uploaded");
+  }
+
+  if (company.verification === VerificationStatus.VERIFIED) {
+    throw new Error("Company already verified");
+  }
+
+  await prisma.company.update({
+    where: { companyId },
+    data: {
+      verification: VerificationStatus.VERIFIED,
+    },
+  });
+
+  return { message: "Company approved successfully" };
+};
+
+// Reject company
+export const rejectCompany = async (companyId: string) => {
+  const company = await prisma.company.findUnique({
+    where: { companyId },
+  });
+
+  if (!company) throw new Error("Company not found");
+
+  if (!company.gstCertificateUrl || !company.licenseDocUrl) {
+    throw new Error("Company documents are not uploaded");
+  }
+
+  if (company.verification === VerificationStatus.REJECTED) {
+    throw new Error("Company already rejected");
+  }
+
+  await prisma.company.update({
+    where: { companyId },
+    data: {
+      verification: VerificationStatus.REJECTED,
+    },
+  });
+
+  return { message: "Company rejected successfully" };
+};
+
+
 // Approve user
 export const verifyUser = async (userId: string) => {
   const user = await prisma.user.findUnique({
@@ -27,19 +95,18 @@ export const verifyUser = async (userId: string) => {
 
   if (!user) throw new Error("User not found");
 
-  if (user.verificationStatus === "APPROVED") {
-    throw new Error("User already approved");
+  if (user.verificationStatus === VerificationStatus.VERIFIED) {
+    throw new Error("User already verified");
   }
 
   await prisma.user.update({
     where: { user_id: userId },
     data: {
-      verificationStatus: "APPROVED",
+      verificationStatus: VerificationStatus.VERIFIED,
     },
   });
 
-  const message =
-    "Your account has been verified. You can now login.";
+  const message = "Your Farmzy account has been verified. You can now login.";
 
   await prisma.notification.create({
     data: {
@@ -49,15 +116,11 @@ export const verifyUser = async (userId: string) => {
   });
 
   await sendApprovalEmail(user.email, user.name);
-
   return { message: "User approved successfully" };
 };
 
 // Reject user
-export const rejectUser = async (
-  userId: string,
-  reason?: string
-) => {
+export const rejectUser = async (userId: string, reason?: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
   });
@@ -67,7 +130,7 @@ export const rejectUser = async (
   await prisma.user.update({
     where: { user_id: userId },
     data: {
-      verificationStatus: "REJECTED",
+      verificationStatus: VerificationStatus.REJECTED,
     },
   });
 
@@ -82,51 +145,5 @@ export const rejectUser = async (
     },
   });
 
-  await sendRejectionEmail(
-    user.email,
-    user.name,
-    reason
-  );
-
   return { message: "User rejected successfully" };
-};
-
-// Block user
-export const blockUser = async (userId: string) => {
-  const user = await prisma.user.findUnique({
-    where: { user_id: userId },
-  });
-
-  if (!user) throw new Error("User not found");
-
-  if (user.isBlocked) {
-    throw new Error("User already blocked");
-  }
-
-  await prisma.user.update({
-    where: { user_id: userId },
-    data: { isBlocked: true },
-  });
-
-  return { message: "User blocked successfully" };
-};
-
-// Unblock user
-export const unblockUser = async (userId: string) => {
-  const user = await prisma.user.findUnique({
-    where: { user_id: userId },
-  });
-
-  if (!user) throw new Error("User not found");
-
-  if (!user.isBlocked) {
-    throw new Error("User is not blocked");
-  }
-
-  await prisma.user.update({
-    where: { user_id: userId },
-    data: { isBlocked: false },
-  });
-
-  return { message: "User unblocked successfully" };
 };

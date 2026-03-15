@@ -5,11 +5,13 @@ import morgan from "morgan";
 
 import authRoutes from "./modules/auth/auth.routes";
 import adminRoutes from "./modules/admin/admin.routes";
-import userRoutes from "./modules/user/user.routes";
-import farmRoutes from "./modules/farm/farm.routes";
 import bankRoutes from "./modules/bank/bank.routes";
+import companyAuthRoutes from "./modules/company-auth/company-auth.routes";
+import farmRoutes from "./modules/farm/farm.routes";
 import kycRoutes from "./modules/kyc/kyc.routes";
-import productRoutes from "./modules/product/product.routes";
+import productRoutes from './modules/product/product.routes';
+import userRoutes from "./modules/user/user.routes";
+import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
 
@@ -22,18 +24,13 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/farm", farmRoutes);
 app.use("/api/bank", bankRoutes);
+app.use("/api/companyAuth", companyAuthRoutes);
+app.use("/api/farm", farmRoutes);
 app.use("/api/kyc", kycRoutes);
-app.use("/api/products", productRoutes);
+app.use("/api/product",productRoutes)
+app.use("/api/user", userRoutes);
 
-
-/* ---------------- HEALTH CHECK ---------------- */
-
-app.get("/health", (req: Request, res: Response) => {
-  res.send("FarmZy API Running ✅");
-});
 
 /* ---------------- 404 HANDLER ---------------- */
 
@@ -43,5 +40,7 @@ app.use((req: Request, res: Response) => {
     message: "Route Not Found",
   });
 });
+
+app.use(errorHandler);
 
 export default app;

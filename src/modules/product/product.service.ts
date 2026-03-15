@@ -1,4 +1,6 @@
 import prisma from "../../config/prisma";
+import ApiError from "../../utils/apiError";
+import { CreateProductDTO, UpdateProductDTO } from "./product.type";
 
 //////////////////////////////////////
 // CREATE PRODUCT
@@ -6,8 +8,8 @@ import prisma from "../../config/prisma";
 
 export const createProduct = async (
   userId: string,
-  data: any,
-  imageUrl?: string
+  data: CreateProductDTO,
+  imageUrl?: string,
 ) => {
   const product = await prisma.product.create({
     data: {
@@ -16,6 +18,14 @@ export const createProduct = async (
       unit: data.unit,
       productImage: imageUrl,
       userId,
+    },
+    select: {
+      productId: true,
+      productName: true,
+      category: true,
+      unit: true,
+      productImage: true,
+      userId: true,
     },
   });
 
@@ -30,10 +40,19 @@ export const createProduct = async (
 //////////////////////////////////////
 
 export const getMyProducts = async (userId: string) => {
-  return prisma.product.findMany({
+  const products = await prisma.product.findMany({
     where: { userId },
     orderBy: { productId: "desc" },
+    select: {
+      productId: true,
+      productName: true,
+      category: true,
+      unit: true,
+      productImage: true,
+    },
   });
+
+  return products;
 };
 
 //////////////////////////////////////
@@ -43,21 +62,18 @@ export const getMyProducts = async (userId: string) => {
 export const updateProduct = async (
   productId: string,
   userId: string,
-  data: any,
-  imageUrl?: string
+  data: UpdateProductDTO,
+  imageUrl?: string,
 ) => {
-  const product = await prisma.product.findFirst({
-    where: {
-      productId,
-      userId,
-    },
+  const product = await prisma.product.findUnique({
+    where: { productId },
   });
 
-  if (!product) {
-    throw new Error("Product not found or unauthorized");
+  if (!product || product.userId !== userId) {
+    throw new ApiError(404, "Product Not Found");
   }
 
-  return prisma.product.update({
+  const updatedProduct = await prisma.product.update({
     where: { productId },
     data: {
       productName: data.productName ?? product.productName,
@@ -65,25 +81,31 @@ export const updateProduct = async (
       unit: data.unit ?? product.unit,
       productImage: imageUrl ?? product.productImage,
     },
+    select: {
+      productId: true,
+      productName: true,
+      category: true,
+      unit: true,
+      productImage: true,
+    },
   });
+
+  return {
+    message: "Product updated successfully",
+    product: updatedProduct,
+  };
 };
 
 //////////////////////////////////////
 // DELETE PRODUCT (ONLY OWNER)
 //////////////////////////////////////
 
-export const deleteProduct = async (
-  productId: string,
-  userId: string
-) => {
-  const product = await prisma.product.findFirst({
-    where: {
-      productId,
-      userId,
-    },
+export const deleteProduct = async (productId: string, userId: string) => {
+  const product = await prisma.product.findUnique({
+    where: { productId },
   });
 
-  if (!product) {
+  if (!product || product.userId !== userId) {
     throw new Error("Product not found or unauthorized");
   }
 
@@ -91,5 +113,7 @@ export const deleteProduct = async (
     where: { productId },
   });
 
-  return { message: "Product deleted successfully" };
+  return {
+    message: "Product deleted successfully",
+  };
 };

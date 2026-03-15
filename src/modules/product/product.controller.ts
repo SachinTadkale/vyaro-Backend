@@ -1,16 +1,13 @@
-import { Response } from "express";
+import { Request, Response } from "express";
+import asyncHandler from "../../utils/asyncHandler";
 import * as productService from "./product.service";
-import { uploadToCloudinary } from "../../lib/cloudinary";
+import { uploadToCloudinary } from "../../config/cloudinary";
 
 //////////////////////////////////////
 // CREATE PRODUCT
 //////////////////////////////////////
-
-export const createProduct = async (
-  req: any,
-  res: Response
-) => {
-  try {
+export const createProduct = asyncHandler(
+  async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
     if (req.file) {
@@ -21,56 +18,38 @@ export const createProduct = async (
     const result = await productService.createProduct(
       req.user.userId,
       req.body,
-      imageUrl
+      imageUrl,
     );
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: result.message,
       data: result.product,
     });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  },
+);
 
 //////////////////////////////////////
 // GET MY PRODUCTS
 //////////////////////////////////////
 
-export const getMyProducts = async (
-  req: any,
-  res: Response
-) => {
-  try {
-    const products = await productService.getMyProducts(
-      req.user.userId
-    );
+export const getMyProducts = asyncHandler(
+  async (req: Request, res: Response) => {
+    const products = await productService.getMyProducts(req.user.userId);
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       data: products,
     });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  },
+);
 
 //////////////////////////////////////
 // UPDATE PRODUCT
 //////////////////////////////////////
 
-export const updateProduct = async (
-  req: any,
-  res: Response
-) => {
-  try {
+export const updateProduct = asyncHandler(
+  async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
 
     if (req.file) {
@@ -78,49 +57,35 @@ export const updateProduct = async (
       imageUrl = upload.url;
     }
 
-    const product =
-      await productService.updateProduct(
-        req.params.id,
-        req.user.userId,
-        req.body,
-        imageUrl
-      );
+    const result = await productService.updateProduct(
+      req.params.id,
+      req.user.userId,
+      req.body,
+      imageUrl,
+    );
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
-      data: product,
+      message: result.message,
+      data: result.product,
     });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  },
+);
 
 //////////////////////////////////////
 // DELETE PRODUCT
 //////////////////////////////////////
 
-export const deleteProduct = async (
-  req: any,
-  res: Response
-) => {
-  try {
-    const result =
-      await productService.deleteProduct(
-        req.params.id,
-        req.user.userId
-      );
+export const deleteProduct = asyncHandler(
+  async (req: Request, res: Response) => {
+    const result = await productService.deleteProduct(
+      req.params.id,
+      req.user.userId,
+    );
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: result.message,
     });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  },
+);
