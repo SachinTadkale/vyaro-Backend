@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma";
-import cloudinary from "../../lib/cloudinary";
+import cloudinary from "../../config/cloudinary";
 
 export const uploadKycService = async (
   userId: string,

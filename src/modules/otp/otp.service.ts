@@ -1,13 +1,13 @@
 import bcrypt from "bcrypt";
-import { PrismaClient } from "@prisma/client";
+import { OtpType } from "@prisma/client";
+import prisma from "../../config/prisma";
 
-const prisma = new PrismaClient();
 class otpService {
   private generateOtpCode(): string {
     return Math.floor(10000 + Math.random() * 90000).toString();
   }
 
-  async generateOtp(userId: string, type: string) {
+  async generateOtp(userId: string, type: OtpType) {
     // 1. Delete Old Unused OTP
     await prisma.otp.deleteMany({
       where: {
@@ -40,7 +40,7 @@ class otpService {
     return otpCode;
   }
 
-  async verifyOtp(userId: string, otp: string, type: string) {
+  async verifyOtp(userId: string, otp: string, type: OtpType) {
     const existingOtp = await prisma.otp.findFirst({
       where: {
         userId,

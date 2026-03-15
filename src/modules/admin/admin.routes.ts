@@ -2,8 +2,11 @@ import { Router } from "express";
 import { authMiddleware } from "../../middleware/auth.middleware";
 import { adminOnly } from "../../middleware/admin.middleware";
 import {
+  approveCompany,
   approveUser,
+  getPendingCompanies,
   getPendingUsers,
+  rejectCompany,
   rejectUser,
 } from "./admin.controller";
 
@@ -15,6 +18,27 @@ router.get(
   authMiddleware,
   adminOnly,
   getPendingUsers
+);
+
+router.get(
+  "/companies/pending-verification",
+  authMiddleware,
+  adminOnly,
+  getPendingCompanies
+);
+
+router.patch(
+  "/companies/:id/approve",
+  authMiddleware,
+  adminOnly,
+  approveCompany
+);
+
+router.patch(
+  "/companies/:id/reject",
+  authMiddleware,
+  adminOnly,
+  rejectCompany
 );
 
 // Approve user

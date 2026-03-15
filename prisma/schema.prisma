@@ -1,10 +1,68 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+//////////////////////
+// ENUMS
+//////////////////////
+
+enum UserRole {
+  USER
+  ADMIN
+  COMPANY
+  DELIVERY_PARTNER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ListingType {
+  SELL
+  BUY
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+}
+
+enum OrderStatus {
+  CREATED
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum OtpType {
+  REGISTER
+  LOGIN
+  RESET_PASSWORD
 }
 
 //////////////////////
@@ -12,17 +70,20 @@ generator client {
 //////////////////////
 
 model User {
-  user_id            String   @id @default(uuid())
+  user_id            String             @id @default(uuid())
   name               String
-  phone_no           String   @unique
+  phone_no           String             @unique
   password           String
   address            String
-  email              String?  @unique
-  gender             String?
-  role               String   @default("USER")
-  verificationStatus String   @default("PENDING")
-  registrationStep   Int      @default(1)
-  createdAt          DateTime @default(now())
+  email              String?            @unique
+  gender             Gender?
+  isBlocked          Boolean            @default(false)
+  role               UserRole           @default(USER)
+  verificationStatus VerificationStatus @default(PENDING)
+  registrationStep   Int                @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   farmDetails   FarmDetails?
   listings      MarketListing[]
@@ -32,6 +93,8 @@ model User {
   products      Product[]
   otps          Otp[]
   kyc           Kyc?
+
+  @@index([phone_no])
 }
 
 model FarmDetails {
@@ -47,13 +110,22 @@ model FarmDetails {
 }
 
 model Company {
-  companyId      String   @id @default(uuid())
+  companyId      String             @id @default(uuid())
   companyName    String
-  registrationNo String   @unique
+  registrationNo String             @unique
   hqLocation     String
-  gstNumber      String   @unique
-  verification   String   @default("PENDING")
-  createdAt      DateTime @default(now())
+  gstNumber      String             @unique
+
+  email          String             @unique
+  password       String
+
+  gstCertificateUrl String?
+  licenseDocUrl     String?
+
+  verification   VerificationStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   inventories Inventory[]
   orders      Order[]
@@ -68,6 +140,8 @@ model Inventory {
   stockPrice  Float
 
   company Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 model Product {
@@ -80,33 +154,47 @@ model Product {
 
   user     User            @relation(fields: [userId], references: [user_id], onDelete: Cascade)
   listings MarketListing[]
+
+  @@unique([userId, productName])
+  @@index([userId])
 }
 
 model MarketListing {
-  listingId   String   @id @default(uuid())
+  listingId   String        @id @default(uuid())
   sellerId    String
   productId   String
-  listingType String
-  status      String   @default("ACTIVE")
-  createdAt   DateTime @default(now())
+  listingType ListingType
+  status      ListingStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   seller  User    @relation(fields: [sellerId], references: [user_id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [productId], onDelete: Cascade)
   orders  Order[]
+
+  @@index([sellerId])
+  @@index([productId])
 }
 
 model Order {
-  orderId       String   @id @default(uuid())
-  listingId     String
-  companyId     String
-  finalPrice    Float
-  paymentStatus String   @default("INITIATED")
-  orderStatus   String   @default("CREATED")
-  createdAt     DateTime @default(now())
+  orderId    String @id @default(uuid())
+  listingId  String
+  companyId  String
+  finalPrice Float
+
+  paymentStatus PaymentStatus @default(INITIATED)
+  orderStatus   OrderStatus   @default(CREATED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   listing  MarketListing @relation(fields: [listingId], references: [listingId], onDelete: Cascade)
   company  Company       @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
   payments Payment[]
+
+  @@index([companyId])
+  @@index([listingId])
 }
 
 model Notification {
@@ -116,31 +204,42 @@ model Notification {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Payment {
-  paymentId       String    @id @default(uuid())
-  orderId         String
-  companyId       String
-  userId          String
-  grossAmount     Float
-  platformFee     Float
-  netAmount       Float
-  paymentStatus   String    @default("PENDING")
+  paymentId String @id @default(uuid())
+  orderId   String
+  companyId String
+  userId    String
+
+  grossAmount Float
+  platformFee Float
+  netAmount   Float
+
+  paymentStatus   PaymentStatus @default(PENDING)
   bankReferenceNo String?
   proofUrl        String?
-  reportedAt      DateTime?
-  confirmedAt     DateTime?
+
+  reportedAt  DateTime?
+  confirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   order        Order         @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
   company      Company       @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
   user         User          @relation(fields: [userId], references: [user_id], onDelete: Cascade)
   transactions Transaction[]
+
+  @@index([orderId])
+  @@index([userId])
 }
 
 model BankDetails {
   id            String @id @default(uuid())
-  userId        String @unique
+  userId        String
   accountHolder String
   bankName      String
   accountNumber String
@@ -148,6 +247,8 @@ model BankDetails {
 
   user         User          @relation(fields: [userId], references: [user_id], onDelete: Cascade)
   transactions Transaction[]
+
+  @@index([userId])
 }
 
 model Transaction {
@@ -157,18 +258,22 @@ model Transaction {
 
   bankDetails BankDetails @relation(fields: [bankDetailsId], references: [id], onDelete: Cascade)
   payment     Payment     @relation(fields: [paymentId], references: [paymentId], onDelete: Cascade)
+
+  @@index([paymentId])
 }
 
 model Otp {
   otpId     String   @id @default(uuid())
   userId    String
   code      String
-  type      String
+  type      OtpType
   isUsed    Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Kyc {

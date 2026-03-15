@@ -5,8 +5,11 @@ declare global {
     interface Request {
       user: {
         userId: string;
-        role: UserRole;
+        role?: UserRole;
+        companyId?: string;
+        actorType?: "USER" | "COMPANY";
       };
+      file?: Express.Multer.File;
     }
   }
 }

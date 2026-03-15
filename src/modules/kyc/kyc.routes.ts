@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { uploadKyc } from "./kyc.controller";
 import { authMiddleware } from "../../middleware/auth.middleware";
-import { upload } from "../upload/upload.middleware";
+import { upload } from "../../middleware/upload.middleware";
 
 const router = Router();
 

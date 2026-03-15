@@ -1,7 +1,7 @@
   import prisma from "../../config/prisma";
 
   export const addBank = async (userId: string, data: any) => {
-    const existing = await prisma.bankDetails.findUnique({
+    const existing = await prisma.bankDetails.findFirst({
       where: { userId },
     });
 

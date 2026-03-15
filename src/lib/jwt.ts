@@ -14,7 +14,9 @@ if (!JWT_SECRET) {
 
 export type JwtPayload = {
   userId: string;
-  role: UserRole;
+  role?: UserRole;
+  companyId?: string;
+  actorType?: "USER" | "COMPANY";
 };
 
 //////////////////////////////////////
