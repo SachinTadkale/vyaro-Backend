@@ -8,7 +8,7 @@ export const adminOnly = (
 ) => {
   if (req.user.role !== UserRole.ADMIN) {
     return res.status(403).json({
-      message: "Access denied. Admin only.",
+      message: "Admin access required",
     });
   }
 

@@ -8,11 +8,12 @@ import {
   getPendingUsers,
   rejectCompany,
   rejectUser,
+  blockUser,
+  unblockUser,
 } from "./admin.controller";
 
 const router = Router();
 
-// Get all pending KYC users
 router.get(
   "/users/pending-kyc",
   authMiddleware,
@@ -49,7 +50,6 @@ router.patch(
   approveUser
 );
 
-// Reject user
 router.patch(
   "/users/:id/reject",
   authMiddleware,

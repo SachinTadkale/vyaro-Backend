@@ -92,7 +92,6 @@ export const approveUser = async (
 ) => {
   try {
     const userId = req.params.id as string;
-
     const result = await adminService.verifyUser(userId);
 
     return res.status(200).json({

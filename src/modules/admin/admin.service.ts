@@ -115,6 +115,7 @@ export const verifyUser = async (userId: string) => {
     },
   });
 
+  await sendApprovalEmail(user.email, user.name);
   return { message: "User approved successfully" };
 };
 
@@ -134,8 +135,8 @@ export const rejectUser = async (userId: string, reason?: string) => {
   });
 
   const message = reason
-    ? `Your Farmzy account verification was rejected. Reason: ${reason}`
-    : "Your Farmzy account verification was rejected.";
+    ? `Your account verification was rejected. Reason: ${reason}`
+    : "Your account verification was rejected.";
 
   await prisma.notification.create({
     data: {
