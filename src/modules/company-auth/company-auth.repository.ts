@@ -1,3 +1,4 @@
+import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 
 export const createCompany = async (data: any) => {
@@ -30,7 +31,7 @@ export const verifyCompany = async (companyId: string) => {
   return prisma.company.update({
     where: { companyId },
     data: {
-      verification: "VERIFIED"
+      verification: VerificationStatus.VERIFIED
     }
   });
 };

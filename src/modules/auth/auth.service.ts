@@ -1,12 +1,31 @@
 import bcrypt from "bcrypt";
-import { OtpType, UserRole, VerificationStatus } from "@prisma/client";
+import { OtpType, User, UserRole, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { generateToken } from "../../lib/jwt";
 import { sendOtpEmail, sendPasswordResetOtp } from "../../lib/email";
+import otpService from "../otp/otp.service";
 
-//////////////////////////////////////
-// REGISTER
-//////////////////////////////////////
+const requireUserEmail = (user: User): string => {
+  if (!user.email) {
+    throw new Error("Email is required for this action");
+  }
+
+  return user.email;
+};
+
+const ensureUserCanLogin = (user: User) => {
+  if (user.isBlocked) {
+    throw new Error("Your account is blocked by admin.");
+  }
+
+  if (user.verificationStatus === VerificationStatus.PENDING) {
+    throw new Error("Your documents are under review.");
+  }
+
+  if (user.verificationStatus === VerificationStatus.REJECTED) {
+    throw new Error("Your documents were rejected.");
+  }
+};
 
 export const register = async (data: any) => {
   const existingEmail = await prisma.user.findUnique({
@@ -37,12 +56,14 @@ export const register = async (data: any) => {
       gender: data.gender,
       verificationStatus: VerificationStatus.PENDING,
       role: UserRole.USER,
+      registrationStep: 1,
     },
   });
 
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
+    actorType: "USER",
   });
 
   return {
@@ -51,267 +72,90 @@ export const register = async (data: any) => {
   };
 };
 
-//////////////////////////////////////
-// PASSWORD LOGIN
-//////////////////////////////////////
-
 export const login = async (data: any) => {
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });
 
-  if (!user) throw new Error("Invalid credentials");
-
-  if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
+  if (!user) {
+    throw new Error("Invalid credentials");
   }
 
-  const isMatch = await bcrypt.compare(
-    data.password,
-    user.password
-  );
+  const isMatch = await bcrypt.compare(data.password, user.password);
 
-  if (!isMatch) throw new Error("Invalid credentials");
+  if (!isMatch) {
+    throw new Error("Invalid credentials");
+  }
 
   if (user.role === UserRole.ADMIN) {
     const token = generateToken({
       userId: user.user_id,
-      type: "LOGIN",
-      isUsed: false,
-    },
-    data: { isUsed: true },
-  });
-
-  await prisma.otp.create({
-    data: {
-      userId: user.user_id,
-      code: otpCode,
-      type: "LOGIN",
-      expiresAt,
-    },
-  });
-
-  await sendOtpEmail(user.email, user.name, otpCode);
-
-  return { message: "OTP sent to your email." };
-};
-
-//////////////////////////////////////
-// LOGIN WITH OTP
-//////////////////////////////////////
-
-export const loginWithOtp = async (data: any) => {
-  const user = await prisma.user.findUnique({
-    where: { email: data.email },
-  });
-
-  if (!user) throw new Error("Invalid request");
-
-  if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
-  }
-
-  if (user.role === "ADMIN") {
-    throw new Error("Admin cannot login using OTP");
-  }
-
-  if (user.verificationStatus === VerificationStatus.PENDING) {
-    throw new Error("Your documents are under review.");
-  }
-
-  if (user.verificationStatus === VerificationStatus.REJECTED) {
-    throw new Error("Your documents were rejected.");
-  }
-
-  if (user.verificationStatus === VerificationStatus.VERIFIED) {
-    const token = generateToken({
-      userId: user.user_id,
       role: user.role,
+      actorType: "USER",
     });
+
     return { token };
   }
 
-  await prisma.otp.update({
-    where: { otpId: otpRecord.otpId },
-    data: { isUsed: true },
-  });
+  ensureUserCanLogin(user);
 
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
+    actorType: "USER",
   });
 
   return { token };
 };
-
-//////////////////////////////////////
-// FORGOT PASSWORD
-//////////////////////////////////////
-
-export const forgotPassword = async (data: any) => {
-  const user = await prisma.user.findUnique({
-    where: { email: data.email },
-  });
-
-  if (!user) throw new Error("User not found!!!");
-  // Verify OTP from otp table
-  await otpService.verifyOtp(user.user_id, data.otp, OtpType.LOGIN);
-
-  // ADMIN Bypass
-  if (user.role === UserRole.ADMIN) {
-    const token = generateToken({
-      userId: user.user_id,
-      role: user.role,
-    });
-    return { token, user };
-  }
-
-  if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
-  }
-
-  if (user.verificationStatus === VerificationStatus.PENDING) {
-    throw new Error("Your documents are under review.");
-  }
-
-  if (user.verificationStatus === VerificationStatus.REJECTED) {
-    throw new Error("Your documents were rejected.");
-  }
-
-  if (user.verificationStatus === VerificationStatus.VERIFIED) {
-    const token = generateToken({
-      userId: user.user_id,
-      code: data.otp,
-      type: "PASSWORD_RESET",
-      isUsed: false,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!otpRecord) {
-    throw new Error("Invalid OTP");
-  }
-
-  if (otpRecord.expiresAt < new Date()) {
-    throw new Error("OTP expired");
-  }
-
-  throw new Error("Unable to login");
-};
-
-//////////////////////////////////////
-// REQUEST OTP
-//////////////////////////////////////
 
 export const requestOtp = async (data: any) => {
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });
 
-  if (!user) throw new Error("User not found");
-
-  if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
+  if (!user) {
+    throw new Error("User not found");
   }
 
-  if (user.role === "ADMIN") {
+  if (user.role === UserRole.ADMIN) {
     throw new Error("Admin cannot login using OTP");
   }
 
-  if (user.verificationStatus !== "APPROVED") {
-    throw new Error("Account not approved.");
-  }
+  ensureUserCanLogin(user);
 
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const email = requireUserEmail(user);
+  const otpCode = await otpService.generateOtp(user.user_id, OtpType.LOGIN);
 
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-  await prisma.otp.updateMany({
-    where: {
-      userId: user.user_id,
-      type: "LOGIN",
-      isUsed: false,
-    },
-    data: { isUsed: true },
-  });
-
-  await prisma.otp.create({
-    data: {
-      userId: user.user_id,
-      code: otpCode,
-      type: "LOGIN",
-      expiresAt,
-    },
-  });
-
-  await sendOtpEmail(user.email, user.name, otpCode);
+  await sendOtpEmail(email, user.name, otpCode);
 
   return { message: "OTP sent to your email." };
 };
-
-//////////////////////////////////////
-// LOGIN WITH OTP
-//////////////////////////////////////
 
 export const loginWithOtp = async (data: any) => {
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });
 
-  if (!user) throw new Error("Invalid request");
-
-  if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
+  if (!user) {
+    throw new Error("Invalid request");
   }
 
-  if (user.role === "ADMIN") {
+  if (user.role === UserRole.ADMIN) {
     throw new Error("Admin cannot login using OTP");
   }
 
-  if (user.verificationStatus === "PENDING") {
-    throw new Error("Your documents are under verification.");
-  }
+  ensureUserCanLogin(user);
 
-  if (user.verificationStatus === "REJECTED") {
-    throw new Error("Your verification was rejected.");
-  }
-
-  if (user.verificationStatus !== "APPROVED") {
-    throw new Error("Unable to login.");
-  }
-
-  const otpRecord = await prisma.otp.findFirst({
-    where: {
-      userId: user.user_id,
-      code: data.otp,
-      type: "LOGIN",
-      isUsed: false,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!otpRecord) throw new Error("Invalid OTP");
-
-  if (otpRecord.expiresAt < new Date()) {
-    throw new Error("OTP expired");
-  }
-
-  await prisma.otp.update({
-    where: { otpId: otpRecord.otpId },
-    data: { isUsed: true },
-  });
+  await otpService.verifyOtp(user.user_id, data.otp, OtpType.LOGIN);
 
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
+    actorType: "USER",
   });
 
   return { token };
 };
-
-//////////////////////////////////////
-// FORGOT PASSWORD
-//////////////////////////////////////
 
 export const forgotPassword = async (data: any) => {
   const user = await prisma.user.findUnique({
@@ -326,37 +170,16 @@ export const forgotPassword = async (data: any) => {
     throw new Error("Your account is blocked by admin.");
   }
 
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const email = requireUserEmail(user);
+  const otpCode = await otpService.generateOtp(
+    user.user_id,
+    OtpType.RESET_PASSWORD,
+  );
 
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-  // Invalidate previous OTPs
-  await prisma.otp.updateMany({
-    where: {
-      userId: user.user_id,
-      type: "PASSWORD_RESET",
-      isUsed: false,
-    },
-    data: { isUsed: true },
-  });
-
-  await prisma.otp.create({
-    data: {
-      userId: user.user_id,
-      code: otpCode,
-      type: "PASSWORD_RESET",
-      expiresAt,
-    },
-  });
-
-  await sendPasswordResetOtp(user.email, user.name, otpCode);
+  await sendPasswordResetOtp(email, user.name, otpCode);
 
   return { message: "Password reset OTP sent to email." };
 };
-
-//////////////////////////////////////
-// RESET PASSWORD
-//////////////////////////////////////
 
 export const resetPassword = async (data: any) => {
   const user = await prisma.user.findUnique({
@@ -371,34 +194,13 @@ export const resetPassword = async (data: any) => {
     throw new Error("Passwords do not match");
   }
 
-  const otpRecord = await prisma.otp.findFirst({
-    where: {
-      userId: user.user_id,
-      code: data.otp,
-      type: "PASSWORD_RESET",
-      isUsed: false,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!otpRecord) {
-    throw new Error("Invalid OTP");
-  }
-
-  if (otpRecord.expiresAt < new Date()) {
-    throw new Error("OTP expired");
-  }
+  await otpService.verifyOtp(user.user_id, data.otp, OtpType.RESET_PASSWORD);
 
   const hashedPassword = await bcrypt.hash(data.newPassword, 10);
 
   await prisma.user.update({
     where: { user_id: user.user_id },
     data: { password: hashedPassword },
-  });
-
-  await prisma.otp.update({
-    where: { otpId: otpRecord.otpId },
-    data: { isUsed: true },
   });
 
   return { message: "Password reset successful" };

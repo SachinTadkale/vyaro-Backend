@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import * as kycService from "./kyc.service";
-import { kycSchema } from "./kyc.validation";
 import { uploadToCloudinary } from "../../config/cloudinary";
 
 export const uploadKyc = async (
@@ -31,7 +30,7 @@ export const uploadKyc = async (
       backImageUrl = backUpload.url; // ✅ extract only URL
     }
 
-    const result = await kycService.createKyc(
+    const kyc = await kycService.createKyc(
       userId,
       req.body,
       frontImageUrl,
@@ -40,8 +39,8 @@ export const uploadKyc = async (
 
     return res.status(201).json({
       success: true,
-      message: result.message,
-      data: result.kyc,
+      message: "KYC submitted successfully",
+      data: kyc,
     });
   } catch (error: any) {
     return res.status(400).json({

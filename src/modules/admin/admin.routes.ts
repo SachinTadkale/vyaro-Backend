@@ -8,8 +8,6 @@ import {
   getPendingUsers,
   rejectCompany,
   rejectUser,
-  blockUser,
-  unblockUser,
 } from "./admin.controller";
 
 const router = Router();
