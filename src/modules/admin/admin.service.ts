@@ -2,7 +2,6 @@ import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { sendApprovalEmail } from "../../lib/email";
 
-// Get pending KYC users
 export const getPendingKyc = async () => {
   return prisma.user.findMany({
     where: {
@@ -17,7 +16,6 @@ export const getPendingKyc = async () => {
   });
 };
 
-// Get pending KYC Comapanies
 export const getPendingCompanyVerifications = async () => {
   return prisma.company.findMany({
     where: {
@@ -35,7 +33,6 @@ export const getPendingCompanyVerifications = async () => {
   });
 };
 
-// Approve company
 export const approveCompany = async (companyId: string) => {
   const company = await prisma.company.findUnique({
     where: { companyId },
@@ -61,7 +58,6 @@ export const approveCompany = async (companyId: string) => {
   return { message: "Company approved successfully" };
 };
 
-// Reject company
 export const rejectCompany = async (companyId: string) => {
   const company = await prisma.company.findUnique({
     where: { companyId },
@@ -87,8 +83,6 @@ export const rejectCompany = async (companyId: string) => {
   return { message: "Company rejected successfully" };
 };
 
-
-// Approve user
 export const verifyUser = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
@@ -116,11 +110,13 @@ export const verifyUser = async (userId: string) => {
     },
   });
 
-  await sendApprovalEmail(user.email!, user.name);
+  if (user.email) {
+    await sendApprovalEmail(user.email, user.name);
+  }
+
   return { message: "User approved successfully" };
 };
 
-// Reject user
 export const rejectUser = async (userId: string, reason?: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },

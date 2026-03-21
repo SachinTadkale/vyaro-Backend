@@ -1,8 +1,9 @@
 import bcrypt from "bcrypt";
-import { OtpType, UserRole, VerificationStatus } from "@prisma/client";
+import { OtpType, User, UserRole, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { sendOtpEmail, sendPasswordResetOtp } from "../../lib/email";
 import { generateToken } from "../../lib/jwt";
+import otpService from "../otp/otp.service";
 import type {
   ForgotPasswordInput,
   ForgotPasswordResult,
@@ -18,19 +19,17 @@ import type {
   ResetPasswordResult,
 } from "./auth.types";
 
-const OTP_EXPIRY_MS = 90 * 1000;
-
-const ensureUserCanAuthenticate = (user: {
-  isBlocked: boolean;
-  role: UserRole;
-  verificationStatus: VerificationStatus;
-}) => {
-  if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
+const requireUserEmail = (user: User): string => {
+  if (!user.email) {
+    throw new Error("Email is required for this action");
   }
 
-  if (user.role === UserRole.ADMIN) {
-    return;
+  return user.email;
+};
+
+const ensureUserCanLogin = (user: User) => {
+  if (user.isBlocked) {
+    throw new Error("Your account is blocked by admin.");
   }
 
   if (user.verificationStatus === VerificationStatus.PENDING) {
@@ -41,9 +40,6 @@ const ensureUserCanAuthenticate = (user: {
     throw new Error("Your documents were rejected.");
   }
 };
-
-const generateOtpCode = () =>
-  Math.floor(100000 + Math.random() * 900000).toString();
 
 export const register = async (data: RegisterInput): Promise<RegisterResult> => {
   if (!data.password) {
@@ -80,12 +76,14 @@ export const register = async (data: RegisterInput): Promise<RegisterResult> => 
       gender: data.gender,
       verificationStatus: VerificationStatus.PENDING,
       role: UserRole.USER,
+      registrationStep: 1,
     },
   });
 
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
+    actorType: "USER",
   });
 
   return {
@@ -114,16 +112,15 @@ export const login = async (data: LoginInput): Promise<LoginResult> => {
   }
 
   if (user.role === UserRole.ADMIN) {
-    throw new Error(
-      "Admin accounts must login through the admin login API."
-    );
+    throw new Error("Admin accounts must login through the admin login API.");
   }
 
-  ensureUserCanAuthenticate(user);
+  ensureUserCanLogin(user);
 
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
+    actorType: "USER",
   });
 
   return { token };
@@ -144,30 +141,12 @@ export const requestOtp = async (
     throw new Error("Admin cannot login using OTP");
   }
 
-  ensureUserCanAuthenticate(user);
+  ensureUserCanLogin(user);
 
-  const otpCode = generateOtpCode();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+  const email = requireUserEmail(user);
+  const otpCode = await otpService.generateOtp(user.user_id, OtpType.LOGIN);
 
-  await prisma.otp.updateMany({
-    where: {
-      userId: user.user_id,
-      type: OtpType.LOGIN,
-      isUsed: false,
-    },
-    data: { isUsed: true },
-  });
-
-  await prisma.otp.create({
-    data: {
-      userId: user.user_id,
-      code: otpCode,
-      type: OtpType.LOGIN,
-      expiresAt,
-    },
-  });
-
-  await sendOtpEmail(user.email ?? "", user.name, otpCode);
+  await sendOtpEmail(email, user.name, otpCode);
 
   return { message: "OTP sent to your email." };
 };
@@ -187,34 +166,14 @@ export const loginWithOtp = async (
     throw new Error("Admin cannot login using OTP");
   }
 
-  ensureUserCanAuthenticate(user);
+  ensureUserCanLogin(user);
 
-  const otpRecord = await prisma.otp.findFirst({
-    where: {
-      userId: user.user_id,
-      code: data.otp,
-      type: OtpType.LOGIN,
-      isUsed: false,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!otpRecord) {
-    throw new Error("Invalid OTP");
-  }
-
-  if (otpRecord.expiresAt < new Date()) {
-    throw new Error("OTP expired");
-  }
-
-  await prisma.otp.update({
-    where: { otpId: otpRecord.otpId },
-    data: { isUsed: true },
-  });
+  await otpService.verifyOtp(user.user_id, data.otp, OtpType.LOGIN);
 
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
+    actorType: "USER",
   });
 
   return { token };
@@ -235,28 +194,13 @@ export const forgotPassword = async (
     throw new Error("Your account is blocked by admin.");
   }
 
-  const otpCode = generateOtpCode();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+  const email = requireUserEmail(user);
+  const otpCode = await otpService.generateOtp(
+    user.user_id,
+    OtpType.RESET_PASSWORD
+  );
 
-  await prisma.otp.updateMany({
-    where: {
-      userId: user.user_id,
-      type: OtpType.RESET_PASSWORD,
-      isUsed: false,
-    },
-    data: { isUsed: true },
-  });
-
-  await prisma.otp.create({
-    data: {
-      userId: user.user_id,
-      code: otpCode,
-      type: OtpType.RESET_PASSWORD,
-      expiresAt,
-    },
-  });
-
-  await sendPasswordResetOtp(user.email ?? "", user.name, otpCode);
+  await sendPasswordResetOtp(email, user.name, otpCode);
 
   return { message: "Password reset OTP sent to email." };
 };
@@ -284,34 +228,13 @@ export const resetPassword = async (
     throw new Error("Passwords do not match");
   }
 
-  const otpRecord = await prisma.otp.findFirst({
-    where: {
-      userId: user.user_id,
-      code: data.otp,
-      type: OtpType.RESET_PASSWORD,
-      isUsed: false,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!otpRecord) {
-    throw new Error("Invalid OTP");
-  }
-
-  if (otpRecord.expiresAt < new Date()) {
-    throw new Error("OTP expired");
-  }
+  await otpService.verifyOtp(user.user_id, data.otp, OtpType.RESET_PASSWORD);
 
   const hashedPassword = await bcrypt.hash(data.newPassword, 10);
 
   await prisma.user.update({
     where: { user_id: user.user_id },
     data: { password: hashedPassword },
-  });
-
-  await prisma.otp.update({
-    where: { otpId: otpRecord.otpId },
-    data: { isUsed: true },
   });
 
   return { message: "Password reset successful" };

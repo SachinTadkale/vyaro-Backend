@@ -23,6 +23,6 @@ export const generateToken = (payload: JwtPayload) => {
   return jwt.sign(payload, JWT_SECRET, options);
 };
 
-export const verifyToken = (token: string) => {
+export const verifyToken = (token: string): JwtPayload => {
   return jwt.verify(token, JWT_SECRET) as JwtPayload;
 };

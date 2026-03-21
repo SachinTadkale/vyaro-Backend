@@ -6,15 +6,15 @@ export const addBankDetails = async (
   res: Response
 ) => {
   try {
-    const result = await bankService.addBank(
+    const bank = await bankService.addBank(
       req.user.userId,
       req.body
     );
 
     return res.status(201).json({
       success: true,
-      message: result.message,
-      data: result.bank,
+      message: "Bank details added successfully",
+      data: bank,
     });
   } catch (error: any) {
     return res.status(400).json({
