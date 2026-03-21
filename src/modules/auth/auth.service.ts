@@ -1,9 +1,23 @@
 import bcrypt from "bcrypt";
 import { OtpType, User, UserRole, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
-import { generateToken } from "../../lib/jwt";
 import { sendOtpEmail, sendPasswordResetOtp } from "../../lib/email";
+import { generateToken } from "../../lib/jwt";
 import otpService from "../otp/otp.service";
+import type {
+  ForgotPasswordInput,
+  ForgotPasswordResult,
+  LoginInput,
+  LoginResult,
+  LoginWithOtpInput,
+  LoginWithOtpResult,
+  RegisterInput,
+  RegisterResult,
+  RequestOtpInput,
+  RequestOtpResult,
+  ResetPasswordInput,
+  ResetPasswordResult,
+} from "./auth.types";
 
 const requireUserEmail = (user: User): string => {
   if (!user.email) {
@@ -27,10 +41,16 @@ const ensureUserCanLogin = (user: User) => {
   }
 };
 
-export const register = async (data: any) => {
-  const existingEmail = await prisma.user.findUnique({
-    where: { email: data.email },
-  });
+export const register = async (data: RegisterInput): Promise<RegisterResult> => {
+  if (!data.password) {
+    throw new Error("Password is required");
+  }
+
+  const existingEmail = data.email
+    ? await prisma.user.findUnique({
+        where: { email: data.email },
+      })
+    : null;
 
   if (existingEmail) {
     throw new Error("Email already registered");
@@ -72,7 +92,11 @@ export const register = async (data: any) => {
   };
 };
 
-export const login = async (data: any) => {
+export const login = async (data: LoginInput): Promise<LoginResult> => {
+  if (!data.password) {
+    throw new Error("Password is required");
+  }
+
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -88,13 +112,7 @@ export const login = async (data: any) => {
   }
 
   if (user.role === UserRole.ADMIN) {
-    const token = generateToken({
-      userId: user.user_id,
-      role: user.role,
-      actorType: "USER",
-    });
-
-    return { token };
+    throw new Error("Admin accounts must login through the admin login API.");
   }
 
   ensureUserCanLogin(user);
@@ -108,7 +126,9 @@ export const login = async (data: any) => {
   return { token };
 };
 
-export const requestOtp = async (data: any) => {
+export const requestOtp = async (
+  data: RequestOtpInput
+): Promise<RequestOtpResult> => {
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -131,7 +151,9 @@ export const requestOtp = async (data: any) => {
   return { message: "OTP sent to your email." };
 };
 
-export const loginWithOtp = async (data: any) => {
+export const loginWithOtp = async (
+  data: LoginWithOtpInput
+): Promise<LoginWithOtpResult> => {
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -157,7 +179,9 @@ export const loginWithOtp = async (data: any) => {
   return { token };
 };
 
-export const forgotPassword = async (data: any) => {
+export const forgotPassword = async (
+  data: ForgotPasswordInput
+): Promise<ForgotPasswordResult> => {
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -173,7 +197,7 @@ export const forgotPassword = async (data: any) => {
   const email = requireUserEmail(user);
   const otpCode = await otpService.generateOtp(
     user.user_id,
-    OtpType.RESET_PASSWORD,
+    OtpType.RESET_PASSWORD
   );
 
   await sendPasswordResetOtp(email, user.name, otpCode);
@@ -181,7 +205,17 @@ export const forgotPassword = async (data: any) => {
   return { message: "Password reset OTP sent to email." };
 };
 
-export const resetPassword = async (data: any) => {
+export const resetPassword = async (
+  data: ResetPasswordInput
+): Promise<ResetPasswordResult> => {
+  if (!data.newPassword) {
+    throw new Error("New password is required");
+  }
+
+  if (!data.confirmPassword) {
+    throw new Error("Confirm password is required");
+  }
+
   const user = await prisma.user.findUnique({
     where: { email: data.email },
   });

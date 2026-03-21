@@ -4,7 +4,7 @@ import prisma from "../../config/prisma";
 
 class otpService {
   private generateOtpCode(): string {
-    return Math.floor(10000 + Math.random() * 90000).toString();
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   async generateOtp(userId: string, type: OtpType) {
@@ -23,8 +23,8 @@ class otpService {
     // 3. Hash OTP before saving
     const hashedOtp = await bcrypt.hash(otpCode, 10);
 
-    // 4. Set Expiry (1 Minute)
-    const expiresAt = new Date(Date.now() + 1 * 60 * 1000);
+    // 4. Set Expiry (90 Seconds)
+    const expiresAt = new Date(Date.now() + 90 * 1000);
 
     // 5. Save in DB
     await prisma.otp.create({

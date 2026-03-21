@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
+import adminAuthRoutes from "./modules/admin-auth/admin-auth.routes";
 import authRoutes from "./modules/auth/auth.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import bankRoutes from "./modules/bank/bank.routes";
@@ -22,6 +23,7 @@ app.use(express.json());
 
 /* ---------------- ROUTES ---------------- */
 
+app.use("/api/admin-auth", adminAuthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bank", bankRoutes);

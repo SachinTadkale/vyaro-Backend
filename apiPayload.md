@@ -85,6 +85,13 @@ Common error responses:
 }
 ```
 
+```json
+{
+  "success": false,
+  "message": "Admin accounts must login through the admin login API."
+}
+```
+
 ### 3. Request OTP
 
 Endpoint: `POST /api/auth/requestOtp`
@@ -115,7 +122,7 @@ Request payload:
 ```json
 {
   "email": "ravi@example.com",
-  "otp": "12345"
+  "otp": "123456"
 }
 ```
 
@@ -125,6 +132,15 @@ Success response:
 {
   "success": true,
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Common error response:
+
+```json
+{
+  "success": false,
+  "message": "Admin cannot login using OTP"
 }
 ```
 
@@ -158,7 +174,7 @@ Request payload:
 ```json
 {
   "email": "ravi@example.com",
-  "otp": "12345",
+  "otp": "123456",
   "newPassword": "NewPassword@123",
   "confirmPassword": "NewPassword@123"
 }
@@ -429,9 +445,103 @@ Success response:
 }
 ```
 
+## Admin Auth APIs
+
+### 15. Login Admin
+
+Endpoint: `POST /api/admin-auth/login`
+
+Request payload:
+
+```json
+{
+  "email": "admin@farmzy.com",
+  "password": "Admin@123"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Common error responses:
+
+```json
+{
+  "success": false,
+  "message": "This login is only for admins. Please use the user login API."
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "Your admin account is blocked."
+}
+```
+
+### 16. Forgot Password Admin
+
+Endpoint: `POST /api/admin-auth/forgotPassword`
+
+Request payload:
+
+```json
+{
+  "email": "admin@farmzy.com"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Admin password reset OTP sent to email."
+}
+```
+
+Common error response:
+
+```json
+{
+  "success": false,
+  "message": "This flow is only for admins. Please use the user auth API."
+}
+```
+
+### 17. Reset Admin Password
+
+Endpoint: `POST /api/admin-auth/resetPassword`
+
+Request payload:
+
+```json
+{
+  "email": "admin@farmzy.com",
+  "otp": "123456",
+  "newPassword": "Admin@456",
+  "confirmPassword": "Admin@456"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Admin password reset successful."
+}
+```
+
 ## Product APIs
 
-### 15. Add Product
+### 18. Add Product
 
 Endpoint: `POST /api/product/add-product`
 
@@ -463,7 +573,7 @@ Success response:
 }
 ```
 
-### 16. Get My Products
+### 19. Get My Products
 
 Endpoint: `GET /api/product/get-product`
 
@@ -486,7 +596,7 @@ Success response:
 }
 ```
 
-### 17. Update Product
+### 20. Update Product
 
 Endpoint: `PATCH /api/product/udpate-product/:id`
 
@@ -517,7 +627,7 @@ Success response:
 }
 ```
 
-### 18. Delete Product
+### 21. Delete Product
 
 Endpoint: `DELETE /api/product/delete-product/:id`
 
@@ -534,7 +644,7 @@ Success response:
 
 ## Admin APIs
 
-### 19. Get Pending KYC Users
+### 22. Get Pending KYC Users
 
 Endpoint: `GET /api/admin/users/pending-kyc`
 
@@ -574,7 +684,7 @@ Success response:
 }
 ```
 
-### 20. Get Pending Company Verifications
+### 23. Get Pending Company Verifications
 
 Endpoint: `GET /api/admin/companies/pending-verification`
 
@@ -604,7 +714,7 @@ Success response:
 }
 ```
 
-### 21. Approve Company
+### 24. Approve Company
 
 Endpoint: `PATCH /api/admin/companies/:id/approve`
 
@@ -623,7 +733,7 @@ Success response:
 }
 ```
 
-### 22. Reject Company
+### 25. Reject Company
 
 Endpoint: `PATCH /api/admin/companies/:id/reject`
 
@@ -642,7 +752,7 @@ Success response:
 }
 ```
 
-### 23. Approve User
+### 26. Approve User
 
 Endpoint: `PATCH /api/admin/users/:id/approve`
 
@@ -661,7 +771,7 @@ Success response:
 }
 ```
 
-### 24. Reject User
+### 27. Reject User
 
 Endpoint: `PATCH /api/admin/users/:id/reject`
 
@@ -684,7 +794,7 @@ Success response:
 
 ## Common 404
 
-### 25. Route Not Found
+### 28. Route Not Found
 
 Success response:
 
