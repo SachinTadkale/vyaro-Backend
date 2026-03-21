@@ -1,5 +1,6 @@
 import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
+import { sendApprovalEmail } from "../../lib/email";
 
 // Get pending KYC users
 export const getPendingKyc = async () => {
@@ -115,7 +116,7 @@ export const verifyUser = async (userId: string) => {
     },
   });
 
-  await sendApprovalEmail(user.email, user.name);
+  await sendApprovalEmail(user.email!, user.name);
   return { message: "User approved successfully" };
 };
 

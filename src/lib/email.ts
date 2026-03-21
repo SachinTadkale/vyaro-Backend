@@ -65,7 +65,7 @@ export const sendOtpEmail = async (
       <h2>Hello ${name},</h2>
       <p>Your OTP for login is:</p>
       <h1>${otp}</h1>
-      <p>This OTP is valid for 5 minutes.</p>
+      <p>This OTP is valid for 90 seconds.</p>
       <br/>
       <p>If you did not request this, please ignore.</p>
     `,
@@ -86,7 +86,7 @@ export const sendPasswordResetOtp = async (
       <p>You requested to reset your password.</p>
       <p>Your OTP is:</p>
       <h1>${otp}</h1>
-      <p>This OTP is valid for 5 minutes.</p>
+      <p>This OTP is valid for 90 seconds.</p>
       <br/>
       <p>If you did not request this, please ignore this email.</p>
       <br/>
