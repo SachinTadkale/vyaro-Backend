@@ -10,8 +10,10 @@ import bankRoutes from "./modules/bank/bank.routes";
 import companyAuthRoutes from "./modules/company-auth/company-auth.routes";
 import farmRoutes from "./modules/farm/farm.routes";
 import kycRoutes from "./modules/kyc/kyc.routes";
-import productRoutes from './modules/product/product.routes';
+import leadsRoutes from "./modules/leads/leads.routes";
+import productRoutes from "./modules/product/product.routes";
 import userRoutes from "./modules/user/user.routes";
+import marketplaceRoutes from "./modules/marketplace/marketplace.routes";
 import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
@@ -30,9 +32,10 @@ app.use("/api/bank", bankRoutes);
 app.use("/api/companyAuth", companyAuthRoutes);
 app.use("/api/farm", farmRoutes);
 app.use("/api/kyc", kycRoutes);
-app.use("/api/product",productRoutes)
+app.use("/api/leads", leadsRoutes);
+app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
-
+app.use("/api/marketplace", marketplaceRoutes);
 
 /* ---------------- 404 HANDLER ---------------- */
 
