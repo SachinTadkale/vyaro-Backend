@@ -250,12 +250,43 @@ Success response:
   "message": "Bank details added successfully",
   "data": {
     "id": "bank-id",
-    "userId": "user-id",
     "accountHolder": "Ravi Kumar",
     "bankName": "State Bank of India",
-    "accountNumber": "123456789012",
-    "ifsc": "SBIN0001234"
+    "accountNumber": "**** **** 9012",
+    "ifsc": "XXXXXXX1234"
   }
+}
+```
+
+Notes:
+
+```text
+Bank account number and IFSC are encrypted before storing in the database.
+The API never returns the full decrypted account number or IFSC.
+Only masked values are returned in responses.
+```
+
+Common error responses:
+
+```json
+{
+  "success": false,
+  "code": "BANK_DETAILS_ALREADY_EXISTS",
+  "message": "Bank details already added"
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "accountNumber must be 9 to 18 digits"
+}
+```
+
+```json
+{
+  "success": false,
+  "message": "ifsc must be a valid IFSC code"
 }
 ```
 
@@ -802,5 +833,349 @@ Success response:
 {
   "success": false,
   "message": "Route Not Found"
+}
+```
+
+## Marketplace APIs
+
+### 29. Create Listing
+
+Endpoint: `POST /api/marketplace/listings`
+
+Access: Farmer only, verified accounts only
+
+Request payload:
+
+```json
+{
+  "productName": "Tomato",
+  "category": "Vegetable",
+  "unit": "kg",
+  "price": 1850,
+  "quantity": 120,
+  "listingType": "SELL"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Listing created successfully",
+  "data": {
+    "id": "listing-id",
+    "product": {
+      "id": "product-id",
+      "name": "Tomato",
+      "category": "Vegetable",
+      "unit": "kg",
+      "image": "https://res.cloudinary.com/demo/tomato.jpg"
+    },
+    "seller": {
+      "id": "user-id",
+      "name": "Ravi Kumar",
+      "rating": null
+    },
+    "price": 1850,
+    "quantity": 120,
+    "minOrder": null,
+    "listingType": "SELL",
+    "status": "ACTIVE",
+    "location": {
+      "address": "Pune",
+      "state": "Maharashtra",
+      "district": "Pune",
+      "village": "Hadapsar",
+      "pincode": "411028"
+    },
+    "createdAt": "2026-03-23T10:00:00.000Z",
+    "updatedAt": "2026-03-23T10:00:00.000Z"
+  }
+}
+```
+
+Common error responses:
+
+```json
+{
+  "success": false,
+  "message": "Seller must be verified to create listings"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "PRODUCT_NOT_FOUND",
+  "message": "Product does not exist",
+  "suggestion": {
+    "productName": "tomato",
+    "similarProducts": [
+      {
+        "id": "product-id-1",
+        "name": "Tomatoes",
+        "category": "Vegetable",
+        "unit": "kg"
+      },
+      {
+        "id": "product-id-2",
+        "name": "Cherry Tomato",
+        "category": "Vegetable",
+        "unit": "crate"
+      }
+    ]
+  }
+}
+```
+
+Notes:
+
+```text
+productId is no longer required in create listing.
+Backend normalizes and compares request productName against Product.productName at query time.
+category and unit are optional helpers for narrowing the match.
+If no exact product match is found, backend returns PRODUCT_NOT_FOUND with up to 5 similar products.
+Backend never auto-creates a product during listing creation.
+```
+
+### 30. Get Marketplace Listings
+
+Endpoint: `GET /api/marketplace/listings`
+
+Access: Farmer and company
+
+Supported query params:
+
+```text
+search, productId, category, location, minPrice, maxPrice,
+minQuantity, maxQuantity, sortBy, order, page, limit
+```
+
+Example request:
+
+```http
+GET /api/marketplace/listings?search=tom&category=Vegetable&minPrice=1000&maxPrice=2000&sortBy=price&order=asc&page=1&limit=10
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "listing-id",
+      "product": {
+        "id": "product-id",
+        "name": "Tomato",
+        "category": "Vegetable",
+        "unit": "kg",
+        "image": "https://res.cloudinary.com/demo/tomato.jpg"
+      },
+      "seller": {
+        "id": "user-id",
+        "name": "Ravi Kumar",
+        "rating": null
+      },
+      "price": 1850,
+      "quantity": 120,
+      "minOrder": null,
+      "listingType": "SELL",
+      "status": "ACTIVE",
+      "location": {
+        "address": "Pune",
+        "state": "Maharashtra",
+        "district": "Pune",
+        "village": "Hadapsar",
+        "pincode": "411028"
+      },
+      "createdAt": "2026-03-23T10:00:00.000Z",
+      "updatedAt": "2026-03-23T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Notes:
+
+```text
+Only ACTIVE SELL listings are returned.
+Search is case-insensitive and matches product name.
+Default sort is createdAt desc.
+```
+
+### 31. Get Single Listing
+
+Endpoint: `GET /api/marketplace/listings/:id`
+
+Access: Farmer and company
+
+Success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "listing-id",
+    "product": {
+      "id": "product-id",
+      "name": "Tomato",
+      "category": "Vegetable",
+      "unit": "kg",
+      "image": "https://res.cloudinary.com/demo/tomato.jpg"
+    },
+    "seller": {
+      "id": "user-id",
+      "name": "Ravi Kumar",
+      "rating": null
+    },
+    "price": 1850,
+    "quantity": 120,
+    "minOrder": null,
+    "listingType": "SELL",
+    "status": "ACTIVE",
+    "location": {
+      "address": "Pune",
+      "state": "Maharashtra",
+      "district": "Pune",
+      "village": "Hadapsar",
+      "pincode": "411028"
+    },
+    "createdAt": "2026-03-23T10:00:00.000Z",
+    "updatedAt": "2026-03-23T10:00:00.000Z"
+  }
+}
+```
+
+### 32. Update Listing
+
+Endpoint: `PATCH /api/marketplace/listings/:id`
+
+Access: Farmer owner only
+
+Request payload:
+
+```json
+{
+  "price": 1900,
+  "quantity": 100,
+  "status": "CLOSED"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Listing updated successfully",
+  "data": {
+    "id": "listing-id",
+    "product": {
+      "id": "product-id",
+      "name": "Tomato",
+      "category": "Vegetable",
+      "unit": "kg",
+      "image": "https://res.cloudinary.com/demo/tomato.jpg"
+    },
+    "seller": {
+      "id": "user-id",
+      "name": "Ravi Kumar",
+      "rating": null
+    },
+    "price": 1900,
+    "quantity": 100,
+    "minOrder": null,
+    "listingType": "SELL",
+    "status": "CLOSED",
+    "location": {
+      "address": "Pune",
+      "state": "Maharashtra",
+      "district": "Pune",
+      "village": "Hadapsar",
+      "pincode": "411028"
+    },
+    "createdAt": "2026-03-23T10:00:00.000Z",
+    "updatedAt": "2026-03-23T11:00:00.000Z"
+  }
+}
+```
+
+### 33. Delete Listing
+
+Endpoint: `DELETE /api/marketplace/listings/:id`
+
+Access: Farmer owner only
+
+Success response:
+
+```json
+{
+  "success": true,
+  "message": "Listing cancelled successfully"
+}
+```
+
+### 34. Get My Listings
+
+Endpoint: `GET /api/marketplace/my-listings`
+
+Access: Farmer only
+
+Optional query params:
+
+```text
+status, sortBy, order, page, limit
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "listing-id",
+      "product": {
+        "id": "product-id",
+        "name": "Tomato",
+        "category": "Vegetable",
+        "unit": "kg",
+        "image": "https://res.cloudinary.com/demo/tomato.jpg"
+      },
+      "seller": {
+        "id": "user-id",
+        "name": "Ravi Kumar",
+        "rating": null
+      },
+      "price": 1900,
+      "quantity": 100,
+      "minOrder": null,
+      "listingType": "SELL",
+      "status": "CLOSED",
+      "location": {
+        "address": "Pune",
+        "state": "Maharashtra",
+        "district": "Pune",
+        "village": "Hadapsar",
+        "pincode": "411028"
+      },
+      "createdAt": "2026-03-23T10:00:00.000Z",
+      "updatedAt": "2026-03-23T11:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  }
 }
 ```

@@ -39,7 +39,7 @@ enum ListingType {
 
 enum ListingStatus {
   ACTIVE
-  SOLD
+  CLOSED
   CANCELLED
 }
 
@@ -63,6 +63,11 @@ enum OtpType {
   REGISTER
   LOGIN
   RESET_PASSWORD
+}
+
+enum LeadRole {
+  FARMER
+  COMPANY
 }
 
 //////////////////////
@@ -89,7 +94,7 @@ model User {
   listings      MarketListing[]
   notifications Notification[]
   payments      Payment[]
-  bankDetails   BankDetails[]
+  bankDetails   BankDetails?
   products      Product[]
   otps          Otp[]
   kyc           Kyc?
@@ -151,11 +156,12 @@ model Product {
   unit         String
   productImage String?
   userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user     User            @relation(fields: [userId], references: [user_id], onDelete: Cascade)
   listings MarketListing[]
 
-  @@unique([userId, productName])
   @@index([userId])
 }
 
@@ -163,6 +169,9 @@ model MarketListing {
   listingId   String        @id @default(uuid())
   sellerId    String
   productId   String
+  price       Float
+  quantity    Float
+  minOrder    Float?
   listingType ListingType
   status      ListingStatus @default(ACTIVE)
 
@@ -175,6 +184,9 @@ model MarketListing {
 
   @@index([sellerId])
   @@index([productId])
+  @@index([price])
+  @@index([createdAt])
+  @@index([status, listingType])
 }
 
 model Order {
@@ -238,12 +250,16 @@ model Payment {
 }
 
 model BankDetails {
-  id            String @id @default(uuid())
-  userId        String
-  accountHolder String
-  bankName      String
-  accountNumber String
-  ifsc          String
+  id                     String @id @default(uuid())
+  userId                 String @unique
+  accountHolder          String
+  bankName               String
+  accountNumberEncrypted String
+  accountNumberIV        String
+  accountNumberLast4     String
+  ifscEncrypted          String
+  ifscIV                 String
+  ifscLast4              String
 
   user         User          @relation(fields: [userId], references: [user_id], onDelete: Cascade)
   transactions Transaction[]
@@ -286,4 +302,14 @@ model Kyc {
   createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      LeadRole
+  name      String?
+  createdAt DateTime @default(now())
+
+  @@map("leads")
 }
