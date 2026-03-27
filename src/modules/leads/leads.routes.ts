@@ -8,9 +8,9 @@ import {
 
 const router = Router();
 
-router.post("/", createLead);
-router.get("/", getLeads);
-router.get("/:id", getLeadById);
-router.delete("/:id", deleteLead);
+router.post("/addLead", createLead);
+router.get("/getLeads", getLeads);
+router.get("/getLeadById/:id", getLeadById);
+router.delete("/deleteLead/:id", deleteLead);
 
 export default router;
