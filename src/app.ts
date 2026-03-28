@@ -19,7 +19,7 @@ import { errorHandler } from "./middleware/error.middleware";
 const app = express();
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(morgan("dev"));
 app.use(express.json());
 
