@@ -33,9 +33,9 @@ app.use("/api/companyAuth", companyAuthRoutes);
 app.use("/api/farm", farmRoutes);
 app.use("/api/kyc", kycRoutes);
 app.use("/api/leads", leadsRoutes);
+app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api/marketplace", marketplaceRoutes);
 
 /* ---------------- 404 HANDLER ---------------- */
 
