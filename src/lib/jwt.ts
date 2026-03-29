@@ -1,11 +1,12 @@
 import { UserRole } from "@prisma/client";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
+import ApiError from "../utils/apiError";
 
 const JWT_SECRET: Secret = process.env.JWT_SECRET as Secret;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
 if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET is not defined");
+  throw new ApiError(500, "Authentication service not configured");
 }
 
 export type JwtPayload = {

@@ -7,22 +7,29 @@ export const errorHandler = (
   res: Response,
   next: NextFunction,
 ) => {
-  const statusCode = err instanceof ApiError ? err.statusCode : 500;
+  console.error("ERROR:", err);
 
-  res.status(statusCode).json({
+  if (err instanceof ApiError && err.isOperational) {
+    return res.status(err.statusCode).json({
+      success: false,
+      message: err.message,
+      ...(err.code ? { code: err.code } : {}),
+      ...(process.env.NODE_ENV !== "production" &&
+      err.details !== undefined &&
+      typeof err.details === "object" &&
+      !Array.isArray(err.details)
+        ? err.details
+        : {}),
+      ...(process.env.NODE_ENV !== "production" &&
+      err.details !== undefined &&
+      (typeof err.details !== "object" || Array.isArray(err.details))
+        ? { details: err.details }
+        : {}),
+    });
+  }
+
+  return res.status(500).json({
     success: false,
-    message: err.message || "Internal Server Error",
-    ...(err instanceof ApiError && err.code ? { code: err.code } : {}),
-    ...(err instanceof ApiError &&
-    err.details !== undefined &&
-    typeof err.details === "object" &&
-    !Array.isArray(err.details)
-      ? err.details
-      : {}),
-    ...(err instanceof ApiError &&
-    err.details !== undefined &&
-    (typeof err.details !== "object" || Array.isArray(err.details))
-      ? { details: err.details }
-      : {}),
+    message: "Something went wrong. Please try again later.",
   });
 };

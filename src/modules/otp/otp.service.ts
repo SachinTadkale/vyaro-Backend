@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { OtpType } from "@prisma/client";
 import prisma from "../../config/prisma";
+import ApiError from "../../utils/apiError";
 
 class otpService {
   private generateOtpCode(): string {
@@ -53,22 +54,22 @@ class otpService {
     });
 
     if (!existingOtp) {
-      throw new Error("OTP Not Found");
+      throw new ApiError(404, "OTP not found");
     }
 
     // Safety check
     if (!existingOtp.expiresAt) {
-      throw new Error("OTP Expiry Missing");
+      throw new ApiError(500, "OTP expiry is missing");
     }
 
     // Check Expiry
     if (existingOtp.expiresAt.getTime() < Date.now()) {
-      throw new Error("OTP Expired");
+      throw new ApiError(400, "OTP expired");
     }
 
     const isMatch = await bcrypt.compare(otp, existingOtp.code);
     if (!isMatch) {
-      throw new Error("Invalid OTP");
+      throw new ApiError(401, "Invalid OTP");
     }
 
     await prisma.otp.update({

@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { OtpType, User, UserRole, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
+import ApiError from "../../utils/apiError";
 import { sendOtpEmail, sendPasswordResetOtp } from "../../lib/email";
 import { generateToken } from "../../lib/jwt";
 import otpService from "../otp/otp.service";
@@ -21,7 +22,7 @@ import type {
 
 const requireUserEmail = (user: User): string => {
   if (!user.email) {
-    throw new Error("Email is required for this action");
+    throw new ApiError(400, "Email is required for this action");
   }
 
   return user.email;
@@ -29,21 +30,21 @@ const requireUserEmail = (user: User): string => {
 
 const ensureUserCanLogin = (user: User) => {
   if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
+    throw new ApiError(403, "Your account is blocked by admin.");
   }
 
   if (user.verificationStatus === VerificationStatus.PENDING) {
-    throw new Error("Your documents are under review.");
+    throw new ApiError(403, "Your documents are under review.");
   }
 
   if (user.verificationStatus === VerificationStatus.REJECTED) {
-    throw new Error("Your documents were rejected.");
+    throw new ApiError(403, "Your documents were rejected.");
   }
 };
 
 export const register = async (data: RegisterInput): Promise<RegisterResult> => {
   if (!data.password) {
-    throw new Error("Password is required");
+    throw new ApiError(400, "Password is required");
   }
 
   const existingEmail = data.email
@@ -53,7 +54,7 @@ export const register = async (data: RegisterInput): Promise<RegisterResult> => 
     : null;
 
   if (existingEmail) {
-    throw new Error("Email already registered");
+    throw new ApiError(409, "Email already registered");
   }
 
   const existingPhone = await prisma.user.findUnique({
@@ -61,7 +62,7 @@ export const register = async (data: RegisterInput): Promise<RegisterResult> => 
   });
 
   if (existingPhone) {
-    throw new Error("Phone number already registered");
+    throw new ApiError(409, "Phone number already registered");
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -94,7 +95,7 @@ export const register = async (data: RegisterInput): Promise<RegisterResult> => 
 
 export const login = async (data: LoginInput): Promise<LoginResult> => {
   if (!data.password) {
-    throw new Error("Password is required");
+    throw new ApiError(400, "Password is required");
   }
 
   const user = await prisma.user.findUnique({
@@ -102,17 +103,17 @@ export const login = async (data: LoginInput): Promise<LoginResult> => {
   });
 
   if (!user) {
-    throw new Error("Invalid credentials");
+    throw new ApiError(401, "Invalid credentials");
   }
 
   const isMatch = await bcrypt.compare(data.password, user.password);
 
   if (!isMatch) {
-    throw new Error("Invalid credentials");
+    throw new ApiError(401, "Invalid credentials");
   }
 
   if (user.role === UserRole.ADMIN) {
-    throw new Error("Admin accounts must login through the admin login API.");
+    throw new ApiError(403, "Admin accounts must login through the admin login API.");
   }
 
   ensureUserCanLogin(user);
@@ -134,11 +135,11 @@ export const requestOtp = async (
   });
 
   if (!user) {
-    throw new Error("User not found");
+    throw new ApiError(404, "User not found");
   }
 
   if (user.role === UserRole.ADMIN) {
-    throw new Error("Admin cannot login using OTP");
+    throw new ApiError(403, "Admin cannot login using OTP");
   }
 
   ensureUserCanLogin(user);
@@ -159,11 +160,11 @@ export const loginWithOtp = async (
   });
 
   if (!user) {
-    throw new Error("Invalid request");
+    throw new ApiError(400, "Invalid request");
   }
 
   if (user.role === UserRole.ADMIN) {
-    throw new Error("Admin cannot login using OTP");
+    throw new ApiError(403, "Admin cannot login using OTP");
   }
 
   ensureUserCanLogin(user);
@@ -187,11 +188,11 @@ export const forgotPassword = async (
   });
 
   if (!user) {
-    throw new Error("User not found");
+    throw new ApiError(404, "User not found");
   }
 
   if (user.isBlocked) {
-    throw new Error("Your account is blocked by admin.");
+    throw new ApiError(403, "Your account is blocked by admin.");
   }
 
   const email = requireUserEmail(user);
@@ -209,11 +210,11 @@ export const resetPassword = async (
   data: ResetPasswordInput
 ): Promise<ResetPasswordResult> => {
   if (!data.newPassword) {
-    throw new Error("New password is required");
+    throw new ApiError(400, "New password is required");
   }
 
   if (!data.confirmPassword) {
-    throw new Error("Confirm password is required");
+    throw new ApiError(400, "Confirm password is required");
   }
 
   const user = await prisma.user.findUnique({
@@ -221,11 +222,11 @@ export const resetPassword = async (
   });
 
   if (!user) {
-    throw new Error("User not found");
+    throw new ApiError(404, "User not found");
   }
 
   if (data.newPassword !== data.confirmPassword) {
-    throw new Error("Passwords do not match");
+    throw new ApiError(400, "Passwords do not match");
   }
 
   await otpService.verifyOtp(user.user_id, data.otp, OtpType.RESET_PASSWORD);

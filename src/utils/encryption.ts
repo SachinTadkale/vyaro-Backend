@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import ApiError from "./apiError";
 
 const IV_LENGTH = 16;
 const ALGORITHM = "aes-256-cbc";
@@ -7,7 +8,7 @@ const resolveEncryptionKey = () => {
   const secret = process.env.BANK_DETAILS_ENCRYPTION_KEY;
 
   if (!secret) {
-    throw new Error("BANK_DETAILS_ENCRYPTION_KEY is not defined");
+    throw new ApiError(500, "Encryption service not configured");
   }
 
   if (/^[0-9a-fA-F]{64}$/.test(secret)) {
@@ -23,9 +24,7 @@ const resolveEncryptionKey = () => {
     return Buffer.from(secret, "utf8");
   }
 
-  throw new Error(
-    "BANK_DETAILS_ENCRYPTION_KEY must be a 32-byte utf8 string, base64, or 64-char hex value",
-  );
+  throw new ApiError(500, "Encryption service not configured");
 };
 
 export const encrypt = (text: string) => {
@@ -65,4 +64,3 @@ export const maskSensitiveValue = (value: string, visibleDigits = 4) => {
 
   return combined.replace(/(.{4})/g, "$1 ").trim();
 };
-

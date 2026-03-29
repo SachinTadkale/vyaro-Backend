@@ -1,6 +1,7 @@
 import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { sendApprovalEmail } from "../../lib/email";
+import ApiError from "../../utils/apiError";
 
 export const getPendingKyc = async () => {
   return prisma.user.findMany({
@@ -38,14 +39,14 @@ export const approveCompany = async (companyId: string) => {
     where: { companyId },
   });
 
-  if (!company) throw new Error("Company not found");
+  if (!company) throw new ApiError(404, "Company not found");
 
   if (!company.gstCertificateUrl || !company.licenseDocUrl) {
-    throw new Error("Company documents are not uploaded");
+    throw new ApiError(400, "Company documents are not uploaded");
   }
 
   if (company.verification === VerificationStatus.VERIFIED) {
-    throw new Error("Company already verified");
+    throw new ApiError(409, "Company already verified");
   }
 
   await prisma.company.update({
@@ -63,14 +64,14 @@ export const rejectCompany = async (companyId: string) => {
     where: { companyId },
   });
 
-  if (!company) throw new Error("Company not found");
+  if (!company) throw new ApiError(404, "Company not found");
 
   if (!company.gstCertificateUrl || !company.licenseDocUrl) {
-    throw new Error("Company documents are not uploaded");
+    throw new ApiError(400, "Company documents are not uploaded");
   }
 
   if (company.verification === VerificationStatus.REJECTED) {
-    throw new Error("Company already rejected");
+    throw new ApiError(409, "Company already rejected");
   }
 
   await prisma.company.update({
@@ -88,10 +89,10 @@ export const verifyUser = async (userId: string) => {
     where: { user_id: userId },
   });
 
-  if (!user) throw new Error("User not found");
+  if (!user) throw new ApiError(404, "User not found");
 
   if (user.verificationStatus === VerificationStatus.VERIFIED) {
-    throw new Error("User already verified");
+    throw new ApiError(409, "User already verified");
   }
 
   await prisma.user.update({
@@ -122,7 +123,7 @@ export const rejectUser = async (userId: string, reason?: string) => {
     where: { user_id: userId },
   });
 
-  if (!user) throw new Error("User not found");
+  if (!user) throw new ApiError(404, "User not found");
 
   await prisma.user.update({
     where: { user_id: userId },
