@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma";
 import cloudinary from "../../config/cloudinary";
+import ApiError from "../../utils/apiError";
 
 export const uploadKycService = async (
   userId: string,
@@ -12,7 +13,7 @@ export const uploadKycService = async (
   });
 
   if (existingKyc) {
-    throw new Error("KYC already submitted");
+    throw new ApiError(409, "KYC already submitted");
   }
 
   const upload = await cloudinary.uploader.upload(file.path);

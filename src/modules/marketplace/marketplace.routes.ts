@@ -13,36 +13,31 @@ import {
 
 const router = Router();
 
-router.get("/listings", authMiddleware, getMarketplaceListings);
-router.get("/listings/:id", authMiddleware, getSingleListing);
+router.get("/getListings", authMiddleware, getMarketplaceListings);
+router.get("/getListingById/:id", authMiddleware, getSingleListing);
 
 router.post(
-  "/listings",
+  "/addListing",
   authMiddleware,
   requireActor("USER"),
   verifiedOnly,
-  createListing
+  createListing,
 );
 
 router.patch(
-  "/listings/:id",
+  "/updateListing/:id",
   authMiddleware,
   requireActor("USER"),
-  updateListing
+  updateListing,
 );
 
 router.delete(
-  "/listings/:id",
+  "/deleteListing/:id",
   authMiddleware,
   requireActor("USER"),
-  deleteListing
+  deleteListing,
 );
 
-router.get(
-  "/my-listings",
-  authMiddleware,
-  requireActor("USER"),
-  getMyListings
-);
+router.get("/my-listings", authMiddleware, requireActor("USER"), getMyListings);
 
 export default router;

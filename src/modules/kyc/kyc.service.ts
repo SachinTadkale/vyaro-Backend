@@ -1,5 +1,6 @@
 import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
+import ApiError from "../../utils/apiError";
 
 export const createKyc = async (
   userId: string,
@@ -12,7 +13,7 @@ export const createKyc = async (
   });
 
   if (existing) {
-    throw new Error("KYC already submitted");
+    throw new ApiError(409, "KYC already submitted");
   }
 
   const kyc = await prisma.kyc.create({

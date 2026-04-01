@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma";
+import ApiError from "../../utils/apiError";
 
 export const createFarm = async (userId: string, data: any) => {
   const existing = await prisma.farmDetails.findUnique({
@@ -6,7 +7,7 @@ export const createFarm = async (userId: string, data: any) => {
   });
 
   if (existing) {
-    throw new Error("Farm details already added");
+    throw new ApiError(409, "Farm details already added");
   }
 
   const farm = await prisma.farmDetails.create({

@@ -1,11 +1,12 @@
 import { v2 as cloudinary } from "cloudinary";
+import ApiError from "../utils/apiError";
 
 if (
   !process.env.CLOUDINARY_CLOUD_NAME ||
   !process.env.CLOUDINARY_API_KEY ||
   !process.env.CLOUDINARY_API_SECRET
 ) {
-  throw new Error("Cloudinary environment variables are missing");
+  throw new ApiError(500, "Media service is not configured");
 }
 
 cloudinary.config({
@@ -25,7 +26,7 @@ export const uploadToCloudinary = async (filePath: string) => {
       public_id: result.public_id,
     };
   } catch (error) {
-    throw new Error("Cloudinary upload failed");
+    throw new ApiError(502, "Media upload failed");
   }
 };
 
@@ -33,7 +34,7 @@ export const deleteFromCloudinary = async (publicId: string) => {
   try {
     await cloudinary.uploader.destroy(publicId);
   } catch (error) {
-    throw new Error("Cloudinary delete failed");
+    throw new ApiError(502, "Media delete failed");
   }
 };
 

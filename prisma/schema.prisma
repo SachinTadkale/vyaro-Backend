@@ -45,17 +45,34 @@ enum ListingStatus {
 
 enum OrderStatus {
   CREATED
-  CONFIRMED
+  ACCEPTED
+  REJECTED
+  PAYMENT_PENDING
+  PAYMENT_SUCCESS
   PROCESSING
-  SHIPPED
+  DISPATCHED
+  IN_TRANSIT
   DELIVERED
+  COMPLETED
   CANCELLED
+  DISPUTED
 }
 
 enum PaymentStatus {
   INITIATED
   PENDING
   SUCCESS
+  FAILED
+  HELD
+  RELEASED
+  REFUNDED
+}
+
+enum DeliveryStatus {
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
   FAILED
 }
 
@@ -115,19 +132,20 @@ model FarmDetails {
 }
 
 model Company {
-  companyId      String             @id @default(uuid())
+  companyId      String @id @default(uuid())
   companyName    String
-  registrationNo String             @unique
+  registrationNo String @unique
   hqLocation     String
-  gstNumber      String             @unique
+  gstNumber      String @unique
 
-  email          String             @unique
-  password       String
+  email    String @unique
+  password String
 
   gstCertificateUrl String?
   licenseDocUrl     String?
+  profileImageUrl   String?
 
-  verification   VerificationStatus @default(PENDING)
+  verification VerificationStatus @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -150,7 +168,7 @@ model Inventory {
 }
 
 model Product {
-  productId    String  @id @default(uuid())
+  productId    String   @id @default(uuid())
   productName  String
   category     String
   unit         String
@@ -190,23 +208,65 @@ model MarketListing {
 }
 
 model Order {
-  orderId    String @id @default(uuid())
-  listingId  String
-  companyId  String
+  orderId   String @id @default(uuid())
+  listingId String
+  companyId String
+
+  quantity   Float
   finalPrice Float
 
-  paymentStatus PaymentStatus @default(INITIATED)
   orderStatus   OrderStatus   @default(CREATED)
+  paymentStatus PaymentStatus @default(INITIATED)
+
+  farmerAccepted Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  listing  MarketListing @relation(fields: [listingId], references: [listingId], onDelete: Cascade)
-  company  Company       @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
-  payments Payment[]
+  listing MarketListing @relation(fields: [listingId], references: [listingId])
+  company Company       @relation(fields: [companyId], references: [companyId])
+
+  payment  Payment?
+  delivery Delivery[]
+  disputes Dispute[]
 
   @@index([companyId])
-  @@index([listingId])
+}
+
+model Delivery {
+  deliveryId String @id @default(uuid())
+  orderId    String
+
+  assignedBy String
+  partnerId  String?
+
+  status DeliveryStatus @default(ASSIGNED)
+
+  pickupTime   DateTime?
+  deliveryTime DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [orderId])
+
+  @@index([orderId])
+}
+
+model Dispute {
+  disputeId String @id @default(uuid())
+  orderId   String
+  raisedBy  String
+
+  reason String
+  status String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [orderId])
+
+  @@index([orderId])
 }
 
 model Notification {
@@ -222,7 +282,8 @@ model Notification {
 
 model Payment {
   paymentId String @id @default(uuid())
-  orderId   String
+
+  orderId   String @unique
   companyId String
   userId    String
 
@@ -234,15 +295,21 @@ model Payment {
   bankReferenceNo String?
   proofUrl        String?
 
+  gatewayOrderId   String?
+  gatewayPaymentId String?
+  signature        String?
+
   reportedAt  DateTime?
   confirmedAt DateTime?
+  releasedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  order        Order         @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
-  company      Company       @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+  order   Order   @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+
   transactions Transaction[]
 
   @@index([orderId])

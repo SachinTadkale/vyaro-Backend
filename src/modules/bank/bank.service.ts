@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
 import { encrypt } from "../../utils/encryption";
@@ -38,26 +39,41 @@ export const addBank = async (userId: string, data: BankInput) => {
   const encryptedAccountNumber = encrypt(data.accountNumber);
   const encryptedIfsc = encrypt(data.ifsc);
 
-  const bank = await prisma.bankDetails.create({
-    data: {
-      userId,
-      accountHolder: data.accountHolder,
-      bankName: data.bankName,
-      accountNumberEncrypted: encryptedAccountNumber.encryptedData,
-      accountNumberIV: encryptedAccountNumber.iv,
-      accountNumberLast4: data.accountNumber.slice(-4),
-      ifscEncrypted: encryptedIfsc.encryptedData,
-      ifscIV: encryptedIfsc.iv,
-      ifscLast4: data.ifsc.slice(-4),
-    },
-    select: {
-      id: true,
-      accountHolder: true,
-      bankName: true,
-      accountNumberLast4: true,
-      ifscLast4: true,
-    },
-  });
+  let bank;
+
+  try {
+    bank = await prisma.bankDetails.create({
+      data: {
+        userId,
+        accountHolder: data.accountHolder,
+        bankName: data.bankName,
+        accountNumberEncrypted: encryptedAccountNumber.encryptedData,
+        accountNumberIV: encryptedAccountNumber.iv,
+        accountNumberLast4: data.accountNumber.slice(-4),
+        ifscEncrypted: encryptedIfsc.encryptedData,
+        ifscIV: encryptedIfsc.iv,
+        ifscLast4: data.ifsc.slice(-4),
+      },
+      select: {
+        id: true,
+        accountHolder: true,
+        bankName: true,
+        accountNumberLast4: true,
+        ifscLast4: true,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new ApiError(409, "Bank details already added", {
+        code: "BANK_DETAILS_ALREADY_EXISTS",
+      });
+    }
+
+    throw error;
+  }
 
   await prisma.user.update({
     where: { user_id: userId },

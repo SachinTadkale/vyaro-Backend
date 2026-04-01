@@ -1,31 +1,20 @@
+import { Response } from "express";
+import ApiError from "../../utils/apiError";
+import asyncHandler from "../../utils/asyncHandler";
 import { uploadKycService } from "./user.service";
 
-export const uploadKYC = async (req: any, res: any) => {
-  try {
-    const userId = req.user.userId;
+export const uploadKYC = asyncHandler(async (req: any, res: Response) => {
+  const userId = req.user.userId;
 
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Document image is required",
-      });
-    }
-
-    const result = await uploadKycService(
-      userId,
-      req.file,
-      req.body.docNo
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "KYC submitted successfully",
-      data: result,
-    });
-  } catch (error: any) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+  if (!req.file) {
+    throw new ApiError(400, "Document image is required");
   }
-};
+
+  const result = await uploadKycService(userId, req.file, req.body.docNo);
+
+  return res.status(200).json({
+    success: true,
+    message: "KYC submitted successfully",
+    data: result,
+  });
+});
