@@ -62,5 +62,8 @@ export const loginCompanyService = async (
     actorType: "COMPANY",
   });
 
-  return { token };
+  return { 
+    token, 
+    company: sanitizeCompany(company)
+  };
 };
