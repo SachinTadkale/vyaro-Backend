@@ -14,6 +14,7 @@ import leadsRoutes from "./modules/leads/leads.routes";
 import productRoutes from "./modules/product/product.routes";
 import userRoutes from "./modules/user/user.routes";
 import marketplaceRoutes from "./modules/marketplace/marketplace.routes";
+import companyProfileRoutes from "./modules/company-profile/company-profile.routes";
 import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
@@ -36,6 +37,7 @@ app.use("/api/leads", leadsRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/companyProfile", companyProfileRoutes);
 
 /* ---------------- 404 HANDLER ---------------- */
 

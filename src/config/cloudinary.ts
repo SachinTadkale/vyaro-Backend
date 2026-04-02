@@ -15,10 +15,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export const uploadToCloudinary = async (filePath: string) => {
+export const uploadToCloudinary = async (
+  filePath: string,
+  folderName: string = "farmzy/kyc"
+) => {
   try {
     const result = await cloudinary.uploader.upload(filePath, {
-      folder: "farmzy/kyc",
+      folder: folderName,
     });
 
     return {
@@ -26,7 +29,7 @@ export const uploadToCloudinary = async (filePath: string) => {
       public_id: result.public_id,
     };
   } catch (error) {
-    throw new ApiError(502, "Media upload failed");
+    throw new Error("Cloudinary upload failed");
   }
 };
 
