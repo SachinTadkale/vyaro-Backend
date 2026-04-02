@@ -67,3 +67,10 @@ export const loginCompanyService = async (
     company: sanitizeCompany(company)
   };
 };
+
+export const logoutCompanyService = async () => {
+  // In a stateless JWT system, logout is purely a client-side action (deleting the token).
+  // This service exists as a formal API exit point. If we ever implement token blacklisting (Redis),
+  // we would invalidate the incoming token here.
+  return { message: "Logged out successfully" };
+};
