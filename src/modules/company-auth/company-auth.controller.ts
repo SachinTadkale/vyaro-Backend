@@ -67,3 +67,15 @@ export const loginCompany = asyncHandler(
     });
   },
 );
+
+export const logoutCompany = asyncHandler(
+  async (req: Request, res: Response) => {
+    const result = await service.logoutCompanyService();
+
+    // If using cookies, we would clear them here using res.clearCookie("token")
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  },
+);
