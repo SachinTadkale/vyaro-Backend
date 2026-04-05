@@ -5,9 +5,7 @@ import ApiError from "../../utils/apiError";
 const positiveNumber = z.coerce.number().positive();
 
 export const createListingSchema = z.object({
-  productName: z.string().trim().min(2, "productName must be at least 2 characters"),
-  category: z.string().trim().min(1).optional(),
-  unit: z.string().trim().min(1).optional(),
+  productId: z.string().trim().min(1, "productId is required"),
   price: positiveNumber,
   quantity: positiveNumber,
   listingType: z.literal(ListingType.SELL),

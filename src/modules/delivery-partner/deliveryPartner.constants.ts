@@ -1,0 +1,16 @@
+import { DeliveryStatus, UserRole } from "@prisma/client";
+
+export const DELIVERY_PARTNER_ROLE = UserRole.DELIVERY_PARTNER;
+
+export const DELIVERY_PARTNER_ERROR_CODES = {
+  INVALID_ROLE: "INVALID_ROLE",
+  PROFILE_ALREADY_EXISTS: "PROFILE_ALREADY_EXISTS",
+  PROFILE_NOT_FOUND: "PROFILE_NOT_FOUND",
+  UNAUTHORIZED: "UNAUTHORIZED",
+  INVALID_INPUT: "INVALID_INPUT",
+} as const;
+
+export const JOB_EXCLUDED_STATUSES: DeliveryStatus[] = [
+  DeliveryStatus.DELIVERED,
+  DeliveryStatus.CANCELLED,
+];

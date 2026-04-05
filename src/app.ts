@@ -15,6 +15,12 @@ import productRoutes from "./modules/product/product.routes";
 import userRoutes from "./modules/user/user.routes";
 import marketplaceRoutes from "./modules/marketplace/marketplace.routes";
 import companyProfileRoutes from "./modules/company-profile/company-profile.routes";
+import deliveryRoutes from "./modules/delivery/delivery.routes";
+import deliveryPartnerRoutes from "./modules/delivery-partner/deliveryPartner.routes";
+import orderRoutes from "./modules/order/order.routes";
+import paymentRoutes, {
+  paymentWebhookRoutes,
+} from "./modules/payment/payment.routes";
 import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
@@ -22,6 +28,8 @@ const app = express();
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(morgan("dev"));
+// Razorpay signs the raw webhook body, so this route must be mounted before JSON parsing.
+app.use("/api/webhooks", express.raw({ type: "application/json" }), paymentWebhookRoutes);
 app.use(express.json());
 
 /* ---------------- ROUTES ---------------- */
@@ -38,6 +46,10 @@ app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/companyProfile", companyProfileRoutes);
+app.use("/api/delivery", deliveryRoutes);
+app.use("/api/delivery-partner", deliveryPartnerRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/payments", paymentRoutes);
 
 /* ---------------- 404 HANDLER ---------------- */
 

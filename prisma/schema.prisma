@@ -46,6 +46,7 @@ enum ListingStatus {
 enum OrderStatus {
   CREATED
   ACCEPTED
+  CONFIRMED
   REJECTED
   PAYMENT_PENDING
   PAYMENT_SUCCESS
@@ -60,6 +61,7 @@ enum OrderStatus {
 
 enum PaymentStatus {
   INITIATED
+  PAID
   PENDING
   SUCCESS
   FAILED
@@ -74,6 +76,7 @@ enum DeliveryStatus {
   IN_TRANSIT
   DELIVERED
   FAILED
+  CANCELLED
 }
 
 enum OtpType {
@@ -106,6 +109,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  deliveryPartner DeliveryPartner?
 
   farmDetails   FarmDetails?
   listings      MarketListing[]
@@ -201,19 +206,28 @@ model MarketListing {
   orders  Order[]
 
   @@index([sellerId])
+  @@index([sellerId, status, listingType])
   @@index([productId])
   @@index([price])
   @@index([createdAt])
   @@index([status, listingType])
+  @@index([status, listingType, createdAt])
 }
 
 model Order {
-  orderId   String @id @default(uuid())
+  orderId   String @id @default(uuid()) 
   listingId String
   companyId String
+  sellerId  String
+  productId String
 
   quantity   Float
+  unitPrice  Float
   finalPrice Float
+
+  productName     String
+  productCategory String
+  productUnit     String
 
   orderStatus   OrderStatus   @default(CREATED)
   paymentStatus PaymentStatus @default(INITIATED)
@@ -227,18 +241,23 @@ model Order {
   company Company       @relation(fields: [companyId], references: [companyId])
 
   payment  Payment?
-  delivery Delivery[]
+  delivery Delivery?
   disputes Dispute[]
 
   @@index([companyId])
+  @@index([companyId, createdAt])
+  @@index([sellerId])
+  @@index([sellerId, createdAt])
+  @@index([listingId])
+  @@index([orderStatus, createdAt])
 }
 
 model Delivery {
   deliveryId String @id @default(uuid())
-  orderId    String
+  orderId    String @unique
 
   assignedBy String
-  partnerId  String?
+  partnerId  String
 
   status DeliveryStatus @default(ASSIGNED)
 
@@ -248,9 +267,37 @@ model Delivery {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  order Order @relation(fields: [orderId], references: [orderId])
+  order   Order            @relation(fields: [orderId], references: [orderId])
+  partner DeliveryPartner? @relation(fields: [partnerId], references: [id])
 
   @@index([orderId])
+  @@index([partnerId])
+  @@index([status])
+  @@index([partnerId, status])
+}
+
+model DeliveryPartner {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  vehicleType   String
+  licenseNumber String
+
+  isAvailable Boolean @default(true)
+  isActive    Boolean @default(true)
+
+  currentLat Float?
+  currentLng Float?
+  lastSeenAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@index([isAvailable])
+  @@index([isAvailable, isActive])
 }
 
 model Dispute {
@@ -287,21 +334,27 @@ model Payment {
   companyId String
   userId    String
 
-  grossAmount Float
-  platformFee Float
-  netAmount   Float
+  amount        Float
+  amountInPaise Int
+  currency      String        @default("INR")
+  status        PaymentStatus @default(INITIATED)
+  method        String?
+  receipt       String?
+  idempotencyKey String?
+  failureReason String?
+  releaseMode   String?
+  releaseReference String?
 
-  paymentStatus   PaymentStatus @default(PENDING)
-  bankReferenceNo String?
-  proofUrl        String?
+  razorpayOrderId   String? @unique
+  razorpayPaymentId String? @unique
+  razorpaySignature String?
 
-  gatewayOrderId   String?
-  gatewayPaymentId String?
-  signature        String?
-
-  reportedAt  DateTime?
-  confirmedAt DateTime?
+  initiatedAt DateTime?
+  paidAt      DateTime?
+  heldAt      DateTime?
   releasedAt  DateTime?
+  failedAt    DateTime?
+  notes       Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -311,9 +364,27 @@ model Payment {
   user    User    @relation(fields: [userId], references: [user_id], onDelete: Cascade)
 
   transactions Transaction[]
+  webhookEvents PaymentWebhookEvent[]
 
   @@index([orderId])
   @@index([userId])
+  @@index([status, createdAt])
+}
+
+model PaymentWebhookEvent {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  eventType String
+  paymentId String?
+  orderId   String?
+  payload   Json
+  createdAt DateTime @default(now())
+
+  payment Payment? @relation(fields: [paymentId], references: [paymentId], onDelete: SetNull)
+
+  @@index([paymentId])
+  @@index([orderId])
+  @@index([eventType, createdAt])
 }
 
 model BankDetails {

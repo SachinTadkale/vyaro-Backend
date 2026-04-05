@@ -6,7 +6,6 @@ import {
 } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
-import { resolveProductForListing } from "../product/product.service";
 import {
   CreateListingInput,
   MarketplaceListingsQuery,
@@ -216,33 +215,24 @@ export const createListing = async (
 ) => {
   await ensureVerifiedSeller(sellerId);
 
-  const productResolution = await resolveProductForListing({
-    productName: data.productName,
-    category: data.category,
-    unit: data.unit,
+  const product = await prisma.product.findFirst({
+    where: {
+      productId: data.productId,
+      userId: sellerId,
+    },
+    select: {
+      productId: true,
+    },
   });
 
-  if (!productResolution.found) {
-    throw new ApiError(404, "Product does not exist", {
-      code: "PRODUCT_NOT_FOUND",
-      details: {
-        suggestion: {
-          productName: productResolution.normalizedProductName,
-          similarProducts: productResolution.similarProducts.map((product) => ({
-            id: product.productId,
-            name: product.productName,
-            category: product.category,
-            unit: product.unit,
-          })),
-        },
-      },
-    });
+  if (!product) {
+    throw new ApiError(404, "Product not found");
   }
 
   const listing = await prisma.marketListing.create({
     data: {
       sellerId,
-      productId: productResolution.product.productId,
+      productId: data.productId,
       price: data.price,
       quantity: data.quantity,
       listingType: data.listingType,
