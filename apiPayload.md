@@ -51,7 +51,8 @@ Prepare these records before full end-to-end testing:
 - one verified farmer user
 - one verified company
 - one admin user
-- one verified delivery partner user with `DeliveryPartner` record and `isAvailable=true`
+- one verified delivery partner user with role `DELIVERY_PARTNER`
+- one `DeliveryPartner` profile created explicitly via `POST /api/delivery-partner/profile`
 - one product owned by the farmer
 - one active SELL listing
 
@@ -986,6 +987,240 @@ Testing checklist:
 - company/admin can set `FAILED` or `CANCELLED`
 - after `DELIVERED`, further transitions must fail
 
+### G.5 Delivery Partner Profile APIs
+
+Base path: `/api/delivery-partner`
+
+Use `DELIVERY_PARTNER_TOKEN` for every route below.
+
+Important rules:
+
+- only users whose role is `DELIVERY_PARTNER` can access these APIs
+- `DeliveryPartner` is an optional extension of `User`
+- a profile is not auto-created for all users
+- a partner must have a profile before fetching jobs or updating availability
+
+### G.5.1 Create Delivery Partner Profile
+
+- Purpose: create the current user’s delivery partner profile
+- Method: `POST`
+- Route: `/api/delivery-partner/profile`
+- Access: delivery partner only
+- Rate limit: `3 / 15 min`
+
+Headers:
+
+```http
+Authorization: Bearer <DELIVERY_PARTNER_TOKEN>
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "vehicleType": "TWO_WHEELER",
+  "licenseNumber": "MH12AB1234"
+}
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "message": "Delivery partner profile created successfully",
+  "data": {
+    "id": "delivery-partner-id",
+    "userId": "user-id",
+    "vehicleType": "TWO_WHEELER",
+    "licenseNumber": "MH12AB1234",
+    "isAvailable": true,
+    "isActive": true,
+    "currentLat": null,
+    "currentLng": null,
+    "lastSeenAt": "2026-04-05T18:45:00.000Z",
+    "user": {
+      "id": "user-id",
+      "name": "Mohan Patil",
+      "phone": "9999999999",
+      "email": "mohan@example.com",
+      "role": "DELIVERY_PARTNER"
+    }
+  }
+}
+```
+
+Common error responses:
+
+```json
+{
+  "success": false,
+  "code": "PROFILE_ALREADY_EXISTS",
+  "message": "Delivery partner profile already exists"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "INVALID_ROLE",
+  "message": "Only delivery partners can access this resource"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "INVALID_INPUT",
+  "message": "Validation failed"
+}
+```
+
+How to test:
+
+1. Login with a user token whose role is `DELIVERY_PARTNER`.
+2. Call the profile creation API once and save the returned `delivery-partner-id`.
+3. Call the same API again and confirm it fails with `PROFILE_ALREADY_EXISTS`.
+
+### G.5.2 Get Own Delivery Partner Profile
+
+- Purpose: fetch the logged-in delivery partner’s profile
+- Method: `GET`
+- Route: `/api/delivery-partner/profile`
+- Access: delivery partner only
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "delivery-partner-id",
+    "userId": "user-id",
+    "vehicleType": "TWO_WHEELER",
+    "licenseNumber": "MH12AB1234",
+    "isAvailable": false,
+    "isActive": true,
+    "currentLat": null,
+    "currentLng": null,
+    "lastSeenAt": "2026-04-05T19:10:00.000Z"
+  }
+}
+```
+
+Common error response:
+
+```json
+{
+  "success": false,
+  "code": "PROFILE_NOT_FOUND",
+  "message": "Delivery partner profile not found"
+}
+```
+
+### G.5.3 Update Availability
+
+- Purpose: toggle delivery partner online or offline availability
+- Method: `PATCH`
+- Route: `/api/delivery-partner/availability`
+- Access: delivery partner only
+- Rate limit: `20/min`
+
+Request body:
+
+```json
+{
+  "isAvailable": true
+}
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "message": "Availability updated successfully",
+  "data": {
+    "id": "delivery-partner-id",
+    "isAvailable": true,
+    "isActive": true,
+    "lastSeenAt": "2026-04-05T19:15:00.000Z"
+  }
+}
+```
+
+Common error responses:
+
+```json
+{
+  "success": false,
+  "code": "PROFILE_NOT_FOUND",
+  "message": "Delivery partner profile not found"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "INVALID_INPUT",
+  "message": "Validation failed"
+}
+```
+
+Testing notes:
+
+- set `isAvailable=false` and confirm the partner should not receive new assignments
+- set `isAvailable=true` and confirm `lastSeenAt` changes
+
+### G.5.4 Get Active Jobs
+
+- Purpose: fetch deliveries assigned to the logged-in partner excluding terminal states
+- Method: `GET`
+- Route: `/api/delivery-partner/jobs`
+- Access: delivery partner only
+- Rate limit: `120/min`
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "partnerId": "delivery-partner-id",
+    "jobs": [
+      {
+        "deliveryId": "delivery-id",
+        "orderId": "order-id",
+        "status": "ASSIGNED",
+        "pickupLocation": "Hadapsar, Pune",
+        "dropLocation": "Pune, Maharashtra",
+        "pickupTime": null,
+        "deliveryTime": null,
+        "createdAt": "2026-04-05T19:20:00.000Z",
+        "updatedAt": "2026-04-05T19:20:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+Common error response:
+
+```json
+{
+  "success": false,
+  "code": "PROFILE_NOT_FOUND",
+  "message": "Delivery partner profile not found"
+}
+```
+
+Query behavior:
+
+- returns jobs where the current partner is assigned
+- excludes `DELIVERED` and `CANCELLED`
+- keeps the response lightweight by returning only order id, pickup location, drop location, and status-oriented delivery fields
+
 ## H. Farm Module
 
 Base path: `/api/farm`
@@ -1145,12 +1380,32 @@ Base path: `/api/marketplace`
 
 Use `FARMER_TOKEN` for seller actions and `COMPANY_TOKEN` or `FARMER_TOKEN` for read actions.
 
-### K.1 Add Listing
+Nearby discovery is now built into listing reads. If `lat` and `lng` are sent, the API enters geo mode automatically, applies a bounding box, computes distance, and ranks by `distance ASC` then `createdAt DESC`.
 
-- Purpose: create a SELL listing for a farmer-owned product
+Primary REST routes:
+
+- `POST /api/marketplace/listings`
+- `GET /api/marketplace/listings`
+- `GET /api/marketplace/listings/search`
+- `GET /api/marketplace/listings/:id`
+- `PATCH /api/marketplace/listings/:id`
+- `DELETE /api/marketplace/listings/:id`
+- `GET /api/marketplace/my-listings`
+
+Legacy aliases still supported:
+
+- `POST /api/marketplace/addListing`
+- `GET /api/marketplace/getListings`
+- `GET /api/marketplace/getListingById/:id`
+- `PATCH /api/marketplace/updateListing/:id`
+- `DELETE /api/marketplace/deleteListing/:id`
+
+### K.1 Create Listing
+
+- Purpose: create a SELL listing for a farmer-owned product with listing coordinates
 - Method: `POST`
-- Route: `/api/marketplace/addListing`
-- Access: verified user only
+- Route: `/api/marketplace/listings`
+- Access: verified farmer only
 
 Request body:
 
@@ -1159,6 +1414,9 @@ Request body:
   "productId": "2616f048-20cf-4d8e-ab59-0c1af8c422d7",
   "price": 1850,
   "quantity": 120,
+  "minOrder": 20,
+  "latitude": 18.5204,
+  "longitude": 73.8567,
   "listingType": "SELL"
 }
 ```
@@ -1175,12 +1433,28 @@ Sample success response:
       "id": "product-id",
       "name": "Tomato",
       "category": "Vegetable",
-      "unit": "kg"
+      "unit": "kg",
+      "image": "https://res.cloudinary.com/demo/tomato.jpg"
+    },
+    "seller": {
+      "id": "seller-id",
+      "name": "Ravi Kumar",
+      "rating": null
     },
     "price": 1850,
     "quantity": 120,
+    "minOrder": 20,
     "listingType": "SELL",
-    "status": "ACTIVE"
+    "status": "ACTIVE",
+    "location": {
+      "address": "Hadapsar, Pune",
+      "state": "Maharashtra",
+      "district": "Pune",
+      "village": "Hadapsar",
+      "pincode": "411028"
+    },
+    "createdAt": "2026-04-05T10:20:00.000Z",
+    "updatedAt": "2026-04-05T10:20:00.000Z"
   }
 }
 ```
@@ -1201,11 +1475,312 @@ Common error responses:
 }
 ```
 
-### K.2 Delete Listing
+```json
+{
+  "success": false,
+  "code": "INVALID_COORDINATES",
+  "message": "Number must be less than or equal to 90"
+}
+```
+
+### K.2 Get Listings
+
+- Purpose: browse marketplace listings with automatic geo-aware ranking when coordinates are provided
+- Method: `GET`
+- Route: `/api/marketplace/listings`
+- Access: authenticated actor
+- Rate limit:
+  normal mode: `120/min`
+  geo mode: `40/min`
+
+Supported query params:
+
+```text
+search, productId, category, location, minPrice, maxPrice, minQuantity, maxQuantity, sortBy, order, page, limit, lat, lng, radius
+```
+
+Geo rules:
+
+- `lat` must be between `-90` and `90`
+- `lng` must be between `-180` and `180`
+- `radius` is in kilometers and must be `<= 500`
+- `lat` and `lng` must be sent together
+- if `lat/lng` are omitted, the API falls back to normal listing mode
+
+Normal mode example:
+
+```http
+GET /api/marketplace/listings?search=tom&category=Vegetable&minPrice=1000&maxPrice=2000&page=1&limit=10
+```
+
+Geo mode example:
+
+```http
+GET /api/marketplace/listings?search=tom&lat=18.5204&lng=73.8567&radius=25&page=1&limit=10
+```
+
+Sample success response in normal mode:
+
+```json
+{
+  "success": true,
+  "mode": "normal",
+  "data": [
+    {
+      "id": "listing-id",
+      "product": {
+        "id": "product-id",
+        "name": "Tomato",
+        "category": "Vegetable",
+        "unit": "kg",
+        "image": "https://res.cloudinary.com/demo/tomato.jpg"
+      },
+      "seller": {
+        "id": "seller-id",
+        "name": "Ravi Kumar",
+        "rating": null
+      },
+      "price": 1850,
+      "quantity": 120,
+      "minOrder": 20,
+      "listingType": "SELL",
+      "status": "ACTIVE",
+      "location": {
+        "address": "Hadapsar, Pune",
+        "state": "Maharashtra",
+        "district": "Pune",
+        "village": "Hadapsar",
+        "pincode": "411028"
+      },
+      "createdAt": "2026-04-05T10:20:00.000Z",
+      "updatedAt": "2026-04-05T10:20:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Sample success response in geo mode:
+
+```json
+{
+  "success": true,
+  "mode": "geo",
+  "data": [
+    {
+      "id": "listing-id",
+      "product": {
+        "id": "product-id",
+        "name": "Tomato",
+        "category": "Vegetable",
+        "unit": "kg",
+        "image": "https://res.cloudinary.com/demo/tomato.jpg"
+      },
+      "seller": {
+        "id": "seller-id",
+        "name": "Ravi Kumar",
+        "rating": null
+      },
+      "price": 1850,
+      "quantity": 120,
+      "minOrder": 20,
+      "listingType": "SELL",
+      "status": "ACTIVE",
+      "location": {
+        "address": "Hadapsar, Pune",
+        "state": "Maharashtra",
+        "district": "Pune",
+        "village": "Hadapsar",
+        "pincode": "411028"
+      },
+      "distanceKm": 3.42,
+      "createdAt": "2026-04-05T10:20:00.000Z",
+      "updatedAt": "2026-04-05T10:20:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Common error responses:
+
+```json
+{
+  "success": false,
+  "code": "INVALID_COORDINATES",
+  "message": "lat and lng must be provided together"
+}
+```
+
+```json
+{
+  "success": false,
+  "code": "RADIUS_TOO_LARGE",
+  "message": "Number must be less than or equal to 500"
+}
+```
+
+### K.3 Search Listings
+
+- Purpose: optional search endpoint that uses the same listing logic as `GET /listings`
+- Method: `GET`
+- Route: `/api/marketplace/listings/search`
+- Access: authenticated actor
+
+Example request:
+
+```http
+GET /api/marketplace/listings/search?search=tomato&lat=18.5204&lng=73.8567&radius=15
+```
+
+### K.4 Get Listing By Id
+
+- Purpose: fetch one listing before order placement, with optional distance from requester
+- Method: `GET`
+- Route: `/api/marketplace/listings/:id`
+- Access: authenticated actor
+
+Optional query params:
+
+```text
+lat, lng, radius
+```
+
+Example request:
+
+```http
+GET /api/marketplace/listings/listing-id?lat=18.5204&lng=73.8567
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "listing-id",
+    "product": {
+      "id": "product-id",
+      "name": "Tomato",
+      "category": "Vegetable",
+      "unit": "kg",
+      "image": "https://res.cloudinary.com/demo/tomato.jpg"
+    },
+    "seller": {
+      "id": "seller-id",
+      "name": "Ravi Kumar",
+      "rating": null
+    },
+    "price": 1850,
+    "quantity": 120,
+    "minOrder": 20,
+    "listingType": "SELL",
+    "status": "ACTIVE",
+    "location": {
+      "address": "Hadapsar, Pune",
+      "state": "Maharashtra",
+      "district": "Pune",
+      "village": "Hadapsar",
+      "pincode": "411028"
+    },
+    "distanceKm": 3.42,
+    "createdAt": "2026-04-05T10:20:00.000Z",
+    "updatedAt": "2026-04-05T10:20:00.000Z"
+  }
+}
+```
+
+### K.5 Get My Listings
+
+- Purpose: fetch listings owned by current farmer
+- Method: `GET`
+- Route: `/api/marketplace/my-listings`
+- Access: farmer only
+
+Supported query params:
+
+```text
+status, page, limit, sortBy, order
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "listing-id",
+      "price": 1850,
+      "quantity": 120,
+      "status": "ACTIVE"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### K.6 Update Listing
+
+- Purpose: update listing owned by the current farmer
+- Method: `PATCH`
+- Route: `/api/marketplace/listings/:id`
+- Access: farmer owner only
+
+Request body:
+
+```json
+{
+  "price": 1900,
+  "quantity": 100,
+  "minOrder": 25,
+  "latitude": 18.5312,
+  "longitude": 73.8446,
+  "status": "CLOSED"
+}
+```
+
+Rules:
+
+- `latitude` and `longitude` must be updated together
+- `minOrder` cannot be greater than `quantity`
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "message": "Listing updated successfully",
+  "data": {
+    "id": "listing-id",
+    "price": 1900,
+    "quantity": 100,
+    "minOrder": 25,
+    "status": "CLOSED"
+  }
+}
+```
+
+### K.7 Delete Listing
 
 - Purpose: cancel a farmer-owned listing
 - Method: `DELETE`
-- Route: `/api/marketplace/deleteListing/:id`
+- Route: `/api/marketplace/listings/:id`
 - Access: farmer owner only
 
 Sample success response:
@@ -1216,60 +1791,6 @@ Sample success response:
   "message": "Listing cancelled successfully"
 }
 ```
-
-### K.3 Get Listing By Id
-
-- Purpose: fetch one listing before order placement
-- Method: `GET`
-- Route: `/api/marketplace/getListingById/:id`
-- Access: authenticated actor
-
-### K.4 Get Listings
-
-- Purpose: browse marketplace listings
-- Method: `GET`
-- Route: `/api/marketplace/getListings`
-- Access: authenticated actor
-
-Supported query params:
-
-```text
-search, productId, category, location, minPrice, maxPrice, minQuantity, maxQuantity, sortBy, order, page, limit
-```
-
-Example request:
-
-```http
-GET /api/marketplace/getListings?search=tom&category=Vegetable&minPrice=1000&maxPrice=2000&sortBy=price&order=asc&page=1&limit=10
-```
-
-### K.5 Get My Listings
-
-- Purpose: fetch listings owned by current farmer
-- Method: `GET`
-- Route: `/api/marketplace/my-listings`
-- Access: farmer only
-
-### K.6 Update Listing
-
-- Purpose: update listing owned by the current farmer
-- Method: `PATCH`
-- Route: `/api/marketplace/updateListing/:id`
-- Access: farmer owner only
-
-Request body:
-
-```json
-{
-  "price": 1900,
-  "quantity": 100,
-  "status": "CLOSED"
-}
-```
-
-Note:
-
-- the current code route is `updateListing`, singular
 
 ## L. Order Module
 
@@ -1793,11 +2314,14 @@ Sample success response:
 
 ### 5. Delivery flow
 
-1. Company assigns delivery or auto-assigns
-2. Login delivery partner and save `DELIVERY_PARTNER_TOKEN`
-3. Update `PICKED_UP`
-4. Update `IN_TRANSIT`
-5. Update `DELIVERED`
+1. Login delivery partner and save `DELIVERY_PARTNER_TOKEN`
+2. Create delivery partner profile
+3. Mark partner available if needed
+4. Company assigns delivery or auto-assigns
+5. Fetch partner jobs
+6. Update `PICKED_UP`
+7. Update `IN_TRANSIT`
+8. Update `DELIVERED`
 
 ### 6. Payment release flow
 
@@ -1832,6 +2356,9 @@ Sample success response:
 
 - assign before payment completion
 - assign unavailable partner
+- fetch jobs without delivery partner profile
+- create profile for non-delivery-partner role
+- duplicate delivery partner profile
 - duplicate active assignment
 - wrong partner status update
 - skip FSM state
@@ -1855,5 +2382,3 @@ RAZORPAY_WEBHOOK_SECRET
 RAZORPAY_API_BASE_URL=https://api.razorpay.com
 RAZORPAY_RELEASE_MODE=MANUAL
 ```
-
-

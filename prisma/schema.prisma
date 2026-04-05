@@ -195,6 +195,8 @@ model MarketListing {
   price       Float
   quantity    Float
   minOrder    Float?
+  latitude    Float?
+  longitude   Float?
   listingType ListingType
   status      ListingStatus @default(ACTIVE)
 
@@ -209,9 +211,11 @@ model MarketListing {
   @@index([sellerId, status, listingType])
   @@index([productId])
   @@index([price])
+  @@index([latitude, longitude])
   @@index([createdAt])
   @@index([status, listingType])
   @@index([status, listingType, createdAt])
+  @@index([status, latitude, longitude])
 }
 
 model Order {

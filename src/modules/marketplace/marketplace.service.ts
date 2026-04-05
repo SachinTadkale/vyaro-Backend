@@ -1,58 +1,39 @@
-import {
-  ListingStatus,
-  ListingType,
-  Prisma,
-  VerificationStatus,
-} from "@prisma/client";
+import { ListingStatus, ListingType, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
+import { calculateHaversineDistanceKm } from "./marketplace.geo";
+import {
+  ListingRecord,
+  NearbyListingRow,
+  countSellerListings,
+  createListingRecord,
+  findListingById,
+  findListingOwnership,
+  findMarketplaceListings,
+  findNearbyMarketplaceListings,
+  findProductOwnedBySeller,
+  updateListingRecord,
+} from "./marketplace.repository";
 import {
   CreateListingInput,
+  isGeoMode,
+  ListingGeoQuery,
   MarketplaceListingsQuery,
   MyListingsQuery,
   UpdateListingInput,
-} from "./marketplace.validator";
+} from "./marketplace.schema";
 
-const listingSelection = {
-  listingId: true,
-  price: true,
-  quantity: true,
-  minOrder: true,
-  listingType: true,
-  status: true,
-  createdAt: true,
-  updatedAt: true,
-  product: {
-    select: {
-      productId: true,
-      productName: true,
-      category: true,
-      unit: true,
-      productImage: true,
-    },
-  },
+const buildLocation = (listing: {
   seller: {
-    select: {
-      user_id: true,
-      name: true,
-      address: true,
-      farmDetails: {
-        select: {
-          state: true,
-          district: true,
-          village: true,
-          pincode: true,
-        },
-      },
-    },
-  },
-} satisfies Prisma.MarketListingSelect;
-
-type ListingRecord = Prisma.MarketListingGetPayload<{
-  select: typeof listingSelection;
-}>;
-
-const buildLocation = (listing: ListingRecord) => ({
+    address: string;
+    farmDetails?: {
+      state: string | null;
+      district: string | null;
+      village: string | null;
+      pincode: string | null;
+    } | null;
+  };
+}) => ({
   address: listing.seller.address,
   state: listing.seller.farmDetails?.state ?? null,
   district: listing.seller.farmDetails?.district ?? null,
@@ -60,7 +41,10 @@ const buildLocation = (listing: ListingRecord) => ({
   pincode: listing.seller.farmDetails?.pincode ?? null,
 });
 
-const formatListing = (listing: ListingRecord) => ({
+const formatListing = (
+  listing: ListingRecord,
+  options?: { distanceKm?: number | null },
+) => ({
   id: listing.listingId,
   product: {
     id: listing.product.productId,
@@ -80,8 +64,49 @@ const formatListing = (listing: ListingRecord) => ({
   listingType: listing.listingType,
   status: listing.status,
   location: buildLocation(listing),
+  ...(options?.distanceKm !== undefined && options.distanceKm !== null
+    ? { distanceKm: Number(options.distanceKm.toFixed(2)) }
+    : {}),
   createdAt: listing.createdAt,
   updatedAt: listing.updatedAt,
+});
+
+const formatNearbyListing = (listing: NearbyListingRow) => ({
+  id: listing.listingId,
+  product: {
+    id: listing.productId,
+    name: listing.productName,
+    category: listing.productCategory,
+    unit: listing.productUnit,
+    image: listing.productImage,
+  },
+  seller: {
+    id: listing.sellerId,
+    name: listing.sellerName,
+    rating: null,
+  },
+  price: listing.price,
+  quantity: listing.quantity,
+  minOrder: listing.minOrder,
+  listingType: listing.listingType,
+  status: listing.status,
+  location: {
+    address: listing.sellerAddress,
+    state: listing.sellerState,
+    district: listing.sellerDistrict,
+    village: listing.sellerVillage,
+    pincode: listing.sellerPincode,
+  },
+  distanceKm: Number(listing.distanceKm.toFixed(2)),
+  createdAt: listing.createdAt,
+  updatedAt: listing.updatedAt,
+});
+
+const buildPagination = (page: number, limit: number, total: number) => ({
+  page,
+  limit,
+  total,
+  totalPages: Math.ceil(total / limit),
 });
 
 const ensureVerifiedSeller = async (userId: string) => {
@@ -102,144 +127,29 @@ const ensureVerifiedSeller = async (userId: string) => {
   }
 };
 
-const buildMarketplaceWhere = (
-  query: MarketplaceListingsQuery,
-): Prisma.MarketListingWhereInput => {
-  const where: Prisma.MarketListingWhereInput = {
-    status: ListingStatus.ACTIVE,
-    listingType: ListingType.SELL,
-  };
-
-  if (query.productId) {
-    where.productId = query.productId;
-  }
-
-  if (query.minPrice !== undefined || query.maxPrice !== undefined) {
-    where.price = {
-      gte: query.minPrice,
-      lte: query.maxPrice,
-    };
-  }
-
-  if (query.minQuantity !== undefined || query.maxQuantity !== undefined) {
-    where.quantity = {
-      gte: query.minQuantity,
-      lte: query.maxQuantity,
-    };
-  }
-
-  if (query.search || query.category) {
-    where.product = {
-      is: {
-        ...(query.search
-          ? {
-              productName: {
-                contains: query.search,
-                mode: "insensitive",
-              },
-            }
-          : {}),
-        ...(query.category
-          ? {
-              category: {
-                equals: query.category,
-                mode: "insensitive",
-              },
-            }
-          : {}),
-      },
-    };
-  }
-
-  if (query.location) {
-    where.seller = {
-      is: {
-        OR: [
-          {
-            address: {
-              contains: query.location,
-              mode: "insensitive",
-            },
-          },
-          {
-            farmDetails: {
-              is: {
-                state: {
-                  contains: query.location,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-          {
-            farmDetails: {
-              is: {
-                district: {
-                  contains: query.location,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-          {
-            farmDetails: {
-              is: {
-                village: {
-                  contains: query.location,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-          {
-            farmDetails: {
-              is: {
-                pincode: {
-                  contains: query.location,
-                  mode: "insensitive",
-                },
-              },
-            },
-          },
-        ],
-      },
-    };
-  }
-
-  return where;
-};
-
 export const createListing = async (
   sellerId: string,
   data: CreateListingInput,
 ) => {
   await ensureVerifiedSeller(sellerId);
 
-  const product = await prisma.product.findFirst({
-    where: {
-      productId: data.productId,
-      userId: sellerId,
-    },
-    select: {
-      productId: true,
-    },
-  });
+  const product = await findProductOwnedBySeller(data.productId, sellerId);
 
   if (!product) {
     throw new ApiError(404, "Product not found");
   }
 
-  const listing = await prisma.marketListing.create({
-    data: {
-      sellerId,
-      productId: data.productId,
-      price: data.price,
-      quantity: data.quantity,
-      listingType: data.listingType,
-      status: ListingStatus.ACTIVE,
-    },
-    select: listingSelection,
-  });
+  const listing = await createListingRecord({
+    sellerId,
+    productId: data.productId,
+    price: data.price,
+    quantity: data.quantity,
+    minOrder: data.minOrder,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    listingType: data.listingType,
+    status: ListingStatus.ACTIVE,
+  } as never);
 
   return {
     message: "Listing created successfully",
@@ -247,46 +157,47 @@ export const createListing = async (
   };
 };
 
+export const getNormalListings = async (query: MarketplaceListingsQuery) => {
+  const { listings, total } = await findMarketplaceListings(query);
+
+  return {
+    mode: "normal" as const,
+    data: listings.map((listing) => formatListing(listing)),
+    pagination: buildPagination(query.page, query.limit, total),
+  };
+};
+
+export const getNearbyListings = async (
+  query: MarketplaceListingsQuery & { lat: number; lng: number },
+) => {
+  const { listings, total } = await findNearbyMarketplaceListings(query);
+
+  return {
+    mode: "geo" as const,
+    data: listings.map(formatNearbyListing),
+    pagination: buildPagination(query.page, query.limit, total),
+  };
+};
+
 export const getMarketplaceListings = async (
   query: MarketplaceListingsQuery,
 ) => {
-  const page = query.page;
-  const limit = query.limit;
-  const skip = (page - 1) * limit;
-  const where = buildMarketplaceWhere(query);
+  if (isGeoMode(query)) {
+    return getNearbyListings(query as MarketplaceListingsQuery & {
+      lat: number;
+      lng: number;
+    });
+  }
 
-  const [listings, total] = await prisma.$transaction([
-    prisma.marketListing.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        [query.sortBy]: query.order,
-      },
-      select: listingSelection,
-    }),
-    prisma.marketListing.count({ where }),
-  ]);
-
-  return {
-    data: listings.map(formatListing),
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
+  return getNormalListings(query);
 };
 
 export const getListingById = async (
   listingId: string,
   actor: { actorType?: "USER" | "COMPANY"; userId: string },
+  geoQuery?: ListingGeoQuery,
 ) => {
-  const listing = await prisma.marketListing.findUnique({
-    where: { listingId },
-    select: listingSelection,
-  });
+  const listing = await findListingById(listingId);
 
   if (!listing) {
     throw new ApiError(404, "Listing not found");
@@ -303,6 +214,22 @@ export const getListingById = async (
     throw new ApiError(404, "Listing not found");
   }
 
+  if (
+    geoQuery &&
+    isGeoMode(geoQuery) &&
+    listing.latitude !== null &&
+    listing.longitude !== null
+  ) {
+    const distanceKm = calculateHaversineDistanceKm(
+      geoQuery.lat,
+      geoQuery.lng,
+      listing.latitude,
+      listing.longitude,
+    );
+
+    return formatListing(listing, { distanceKm });
+  }
+
   return formatListing(listing);
 };
 
@@ -311,26 +238,26 @@ export const updateListing = async (
   sellerId: string,
   data: UpdateListingInput,
 ) => {
-  const listing = await prisma.marketListing.findUnique({
-    where: { listingId },
-    select: {
-      listingId: true,
-      sellerId: true,
-    },
-  });
+  const listing = await findListingOwnership(listingId);
 
   if (!listing || listing.sellerId !== sellerId) {
     throw new ApiError(404, "Listing not found");
   }
 
-  const updatedListing = await prisma.marketListing.update({
-    where: { listingId },
-    data: {
-      ...(data.price !== undefined ? { price: data.price } : {}),
-      ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
-      ...(data.status !== undefined ? { status: data.status } : {}),
-    },
-    select: listingSelection,
+  const nextQuantity = data.quantity ?? listing.quantity;
+  const nextMinOrder = data.minOrder;
+
+  if (nextMinOrder !== undefined && nextMinOrder > nextQuantity) {
+    throw new ApiError(400, "minOrder cannot be greater than quantity");
+  }
+
+  const updatedListing = await updateListingRecord(listingId, {
+    ...(data.price !== undefined ? { price: data.price } : {}),
+    ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+    ...(data.minOrder !== undefined ? { minOrder: data.minOrder } : {}),
+    ...(data.latitude !== undefined ? { latitude: data.latitude } : {}),
+    ...(data.longitude !== undefined ? { longitude: data.longitude } : {}),
+    ...(data.status !== undefined ? { status: data.status } : {}),
   });
 
   return {
@@ -340,14 +267,7 @@ export const updateListing = async (
 };
 
 export const deleteListing = async (listingId: string, sellerId: string) => {
-  const listing = await prisma.marketListing.findUnique({
-    where: { listingId },
-    select: {
-      listingId: true,
-      sellerId: true,
-      status: true,
-    },
-  });
+  const listing = await findListingOwnership(listingId);
 
   if (!listing || listing.sellerId !== sellerId) {
     throw new ApiError(404, "Listing not found");
@@ -357,11 +277,8 @@ export const deleteListing = async (listingId: string, sellerId: string) => {
     throw new ApiError(400, "Listing already cancelled");
   }
 
-  await prisma.marketListing.update({
-    where: { listingId },
-    data: {
-      status: ListingStatus.CANCELLED,
-    },
+  await updateListingRecord(listingId, {
+    status: ListingStatus.CANCELLED,
   });
 
   return {
@@ -373,34 +290,10 @@ export const getMyListings = async (
   sellerId: string,
   query: MyListingsQuery,
 ) => {
-  const page = query.page;
-  const limit = query.limit;
-  const skip = (page - 1) * limit;
-  const where: Prisma.MarketListingWhereInput = {
-    sellerId,
-    ...(query.status ? { status: query.status } : {}),
-  };
-
-  const [listings, total] = await prisma.$transaction([
-    prisma.marketListing.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        [query.sortBy]: query.order,
-      },
-      select: listingSelection,
-    }),
-    prisma.marketListing.count({ where }),
-  ]);
+  const { listings, total } = await countSellerListings(sellerId, query);
 
   return {
-    data: listings.map(formatListing),
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
+    data: listings.map((listing) => formatListing(listing)),
+    pagination: buildPagination(query.page, query.limit, total),
   };
 };
