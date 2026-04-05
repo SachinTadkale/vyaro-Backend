@@ -226,7 +226,12 @@ export const markPaymentVerifiedAndHeld = async ({
       return null;
     }
 
-    if (payment.status === PaymentStatus.HELD || payment.status === PaymentStatus.RELEASED) {
+    if (
+      payment.status === PaymentStatus.HELD ||
+      payment.status === PaymentStatus.ESCROWED ||
+      payment.status === PaymentStatus.FROZEN ||
+      payment.status === PaymentStatus.RELEASED
+    ) {
       return tx.payment.findUnique({
         where: { orderId },
         select: paymentDetailsSelect,
@@ -236,7 +241,7 @@ export const markPaymentVerifiedAndHeld = async ({
     await tx.payment.update({
       where: { orderId },
       data: {
-        status: PaymentStatus.HELD,
+        status: PaymentStatus.ESCROWED,
         method,
         razorpayOrderId,
         razorpayPaymentId,
@@ -251,7 +256,7 @@ export const markPaymentVerifiedAndHeld = async ({
       where: { orderId },
       data: {
         orderStatus: OrderStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.HELD,
+        paymentStatus: PaymentStatus.ESCROWED,
       },
     });
 
@@ -357,7 +362,9 @@ export const releasePaymentToFarmer = async ({
       return { error: "BANK_DETAILS_NOT_FOUND" } as const;
     }
 
-    if (payment.status === PaymentStatus.RELEASED) {
+    if (
+      payment.status === PaymentStatus.RELEASED
+    ) {
       return tx.payment.findUnique({
         where: { orderId },
         select: paymentDetailsSelect,

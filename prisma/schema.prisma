@@ -66,8 +66,22 @@ enum PaymentStatus {
   SUCCESS
   FAILED
   HELD
+  ESCROWED
   RELEASED
   REFUNDED
+  FROZEN
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum AuditEntityType {
+  DISPUTE
+  PAYMENT
 }
 
 enum DeliveryStatus {
@@ -305,19 +319,36 @@ model DeliveryPartner {
 }
 
 model Dispute {
-  disputeId String @id @default(uuid())
-  orderId   String
-  raisedBy  String
+  id               String        @id @default(uuid())
+  orderId          String
+  raisedBy         String
+  raisedByActorType String
+  reason           String
+  description      String
+  status           DisputeStatus @default(OPEN)
+  resolutionNote   String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  resolvedAt       DateTime?
+  resolvedBy       String?
 
-  reason String
-  status String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  order Order @relation(fields: [orderId], references: [orderId])
+  order Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
 
   @@index([orderId])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String          @id @default(uuid())
+  entityType  AuditEntityType
+  entityId    String
+  action      String
+  performedBy String
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([performedBy, createdAt])
 }
 
 model Notification {

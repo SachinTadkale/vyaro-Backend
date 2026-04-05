@@ -886,7 +886,7 @@ Sample success response:
     "order": {
       "id": "order-id",
       "orderStatus": "PROCESSING",
-      "paymentStatus": "HELD"
+      "paymentStatus": "ESCROWED"
     },
     "partner": {
       "id": "delivery-partner-id",
@@ -2081,7 +2081,7 @@ Common error responses:
 
 ### M.4 Verify Payment
 
-- Purpose: verify Razorpay payment and move payment into HELD state
+- Purpose: verify Razorpay payment and move payment into ESCROWED state
 - Method: `POST`
 - Route: `/api/payments/verify`
 - Access: company only
@@ -2110,7 +2110,7 @@ Sample success response:
     "paymentId": "payment-id",
     "orderId": "order-id",
     "orderStatus": "CONFIRMED",
-    "paymentStatus": "HELD",
+    "paymentStatus": "ESCROWED",
     "razorpayPaymentId": "pay_Rzp123456789"
   }
 }
@@ -2126,7 +2126,140 @@ Common error responses:
 }
 ```
 
-### M.5 Webhook: Razorpay
+### M.5 Dispute APIs
+
+Base path: `/api/disputes`
+
+Dispute rules:
+
+- one order can have multiple historical disputes, but only one active dispute at a time
+- only the farmer or company attached to the order can raise a dispute
+- payment is frozen immediately on dispute creation
+- only admin can resolve disputes
+- every create and resolve action writes audit logs for dispute and payment entities
+
+### M.5.1 Raise Dispute
+
+- Purpose: raise an order dispute and freeze escrow
+- Method: `POST`
+- Route: `/api/disputes`
+- Access: `FARMER_TOKEN` or `COMPANY_TOKEN`
+- Rate limit: `5 / 15 min`
+
+Request body:
+
+```json
+{
+  "orderId": "order-id",
+  "reason": "QUALITY_MISMATCH",
+  "description": "The delivered produce quality does not match the agreed grade."
+}
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "message": "Dispute created successfully",
+  "data": {
+    "id": "dispute-id",
+    "orderId": "order-id",
+    "raisedBy": "company-id",
+    "raisedByActorType": "COMPANY",
+    "reason": "QUALITY_MISMATCH",
+    "description": "The delivered produce quality does not match the agreed grade.",
+    "status": "OPEN",
+    "resolutionNote": null,
+    "resolvedAt": null,
+    "resolvedBy": null,
+    "payment": {
+      "id": "payment-id",
+      "status": "FROZEN",
+      "amount": 46250,
+      "currency": "INR"
+    }
+  }
+}
+```
+
+### M.5.2 Get Dispute
+
+- Purpose: fetch dispute details
+- Method: `GET`
+- Route: `/api/disputes/:id`
+- Access:
+  - `FARMER_TOKEN` for seller on the order
+  - `COMPANY_TOKEN` for buyer company on the order
+  - `ADMIN_TOKEN`
+- Rate limit: `60/min`
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "dispute-id",
+    "orderId": "order-id",
+    "status": "OPEN",
+    "reason": "QUALITY_MISMATCH",
+    "description": "The delivered produce quality does not match the agreed grade.",
+    "order": {
+      "id": "order-id",
+      "orderStatus": "DISPUTED",
+      "paymentStatus": "FROZEN"
+    },
+    "payment": {
+      "id": "payment-id",
+      "status": "FROZEN"
+    }
+  }
+}
+```
+
+### M.5.3 Resolve Dispute
+
+- Purpose: admin resolves the dispute and either releases or refunds funds
+- Method: `PATCH`
+- Route: `/api/disputes/:id/resolve`
+- Access: `ADMIN_TOKEN`
+- Rate limit: `20/min`
+
+Request body:
+
+```json
+{
+  "resolutionAction": "REFUND",
+  "resolutionNote": "Quality inspection failed and refund is approved for the company."
+}
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "message": "Dispute resolved successfully",
+  "data": {
+    "id": "dispute-id",
+    "status": "RESOLVED",
+    "resolutionNote": "Quality inspection failed and refund is approved for the company.",
+    "resolvedBy": "admin-user-id",
+    "payment": {
+      "id": "payment-id",
+      "status": "REFUNDED"
+    },
+    "order": {
+      "id": "order-id",
+      "orderStatus": "CANCELLED",
+      "paymentStatus": "REFUNDED"
+    }
+  }
+}
+```
+
+### M.6 Webhook: Razorpay
 
 - Purpose: retry-safe webhook processing for payment captured/failed events
 - Method: `POST`
@@ -2310,7 +2443,14 @@ Sample success response:
 1. Company creates payment order
 2. Complete Razorpay checkout
 3. Company verifies payment
-4. Confirm payment is `HELD`
+4. Confirm payment is `ESCROWED`
+
+### 4.1 Optional dispute flow
+
+1. Raise a dispute using farmer or company token
+2. Confirm payment becomes `FROZEN`
+3. Resolve the dispute with admin token
+4. Confirm payment becomes `RELEASED` or `REFUNDED`
 
 ### 5. Delivery flow
 

@@ -139,6 +139,8 @@ const assertOrderPayable = (
   ];
   const settledPaymentStatuses: PaymentStatus[] = [
     PaymentStatus.HELD,
+    PaymentStatus.ESCROWED,
+    PaymentStatus.FROZEN,
     PaymentStatus.RELEASED,
   ];
 
@@ -262,6 +264,8 @@ export const verifyPayment = async (
 
   if (
     payment.status === PaymentStatus.HELD ||
+    payment.status === PaymentStatus.ESCROWED ||
+    payment.status === PaymentStatus.FROZEN ||
     payment.status === PaymentStatus.RELEASED
   ) {
     return {
@@ -372,6 +376,7 @@ export const releasePayment = async (
 
   if (
     payment.status !== PaymentStatus.HELD &&
+    payment.status !== PaymentStatus.ESCROWED &&
     payment.status !== PaymentStatus.RELEASED
   ) {
     throw new ApiError(409, "Payment must be held before release", {

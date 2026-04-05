@@ -30,6 +30,7 @@ export const OVERRIDE_ALLOWED_STATUSES = new Set<DeliveryStatus>([
 
 export const COMPLETED_PAYMENT_STATUSES = new Set<PaymentStatus>([
   PaymentStatus.HELD,
+  PaymentStatus.ESCROWED,
   PaymentStatus.RELEASED,
   PaymentStatus.PAID,
   PaymentStatus.SUCCESS,

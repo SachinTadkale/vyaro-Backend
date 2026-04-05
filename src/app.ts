@@ -17,6 +17,7 @@ import marketplaceRoutes from "./modules/marketplace/marketplace.routes";
 import companyProfileRoutes from "./modules/company-profile/company-profile.routes";
 import deliveryRoutes from "./modules/delivery/delivery.routes";
 import deliveryPartnerRoutes from "./modules/delivery-partner/deliveryPartner.routes";
+import disputeRoutes from "./modules/dispute/dispute.routes";
 import orderRoutes from "./modules/order/order.routes";
 import paymentRoutes, {
   paymentWebhookRoutes,
@@ -48,6 +49,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/companyProfile", companyProfileRoutes);
 app.use("/api/delivery", deliveryRoutes);
 app.use("/api/delivery-partner", deliveryPartnerRoutes);
+app.use("/api/disputes", disputeRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 
