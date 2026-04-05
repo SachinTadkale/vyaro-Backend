@@ -3,6 +3,7 @@ import asyncHandler from "../../utils/asyncHandler";
 import * as marketplaceService from "./marketplace.service";
 import {
   createListingSchema,
+  listingGeoQuerySchema,
   listingIdParamSchema,
   marketplaceListingsQuerySchema,
   myListingsQuerySchema,
@@ -41,10 +42,11 @@ export const getMarketplaceListings = asyncHandler(
 export const getSingleListing = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(listingIdParamSchema, req.params);
+    const geoQuery = validateSchema(listingGeoQuerySchema, req.query);
     const listing = await marketplaceService.getListingById(id, {
       userId: req.user.userId,
       actorType: req.user.actorType,
-    });
+    }, geoQuery);
 
     res.status(200).json({
       success: true,

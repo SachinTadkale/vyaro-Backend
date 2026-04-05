@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
 import ApiError from "../utils/apiError";
 
@@ -26,6 +27,24 @@ export const errorHandler = (
         ? { details: err.details }
         : {}),
     });
+  }
+
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        message: "Resource already exists",
+        code: "RESOURCE_CONFLICT",
+      });
+    }
+
+    if (err.code === "P2025") {
+      return res.status(404).json({
+        success: false,
+        message: "Resource not found",
+        code: "RESOURCE_NOT_FOUND",
+      });
+    }
   }
 
   return res.status(500).json({

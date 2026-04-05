@@ -29,7 +29,7 @@ export const uploadToCloudinary = async (
       public_id: result.public_id,
     };
   } catch (error) {
-    throw new Error("Cloudinary upload failed");
+    throw new ApiError(502, "Media upload failed");;
   }
 };
 
