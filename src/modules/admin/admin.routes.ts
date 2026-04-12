@@ -4,13 +4,23 @@ import { adminOnly } from "../../middleware/admin.middleware";
 import {
   approveCompany,
   approveUser,
+  blockUser,
+  getAdminStats,
+  getCompanies,
+  getOrders,
   getPendingCompanies,
   getPendingUsers,
+  getUsers,
   rejectCompany,
   rejectUser,
+  unblockUser,
 } from "./admin.controller";
 
 const router = Router();
+
+router.get("/stats", authMiddleware, adminOnly, getAdminStats);
+
+router.get("/users", authMiddleware, adminOnly, getUsers);
 
 router.get(
   "/users/pending-kyc",
@@ -19,12 +29,20 @@ router.get(
   getPendingUsers
 );
 
+router.patch("/users/:id/block", authMiddleware, adminOnly, blockUser);
+
+router.patch("/users/:id/unblock", authMiddleware, adminOnly, unblockUser);
+
+router.get("/companies", authMiddleware, adminOnly, getCompanies);
+
 router.get(
   "/companies/pending-verification",
   authMiddleware,
   adminOnly,
   getPendingCompanies
 );
+
+router.get("/orders", authMiddleware, adminOnly, getOrders);
 
 router.patch(
   "/companies/:id/approve",
