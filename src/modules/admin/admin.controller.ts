@@ -2,6 +2,42 @@ import { Request, Response } from "express";
 import asyncHandler from "../../utils/asyncHandler";
 import * as adminService from "./admin.service";
 
+export const getAdminStats = asyncHandler(async (_req: Request, res: Response) => {
+  const stats = await adminService.getAdminStats();
+
+  return res.status(200).json({
+    success: true,
+    data: stats,
+  });
+});
+
+export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
+  const users = await adminService.getUsers();
+
+  return res.status(200).json({
+    success: true,
+    data: users,
+  });
+});
+
+export const getCompanies = asyncHandler(async (_req: Request, res: Response) => {
+  const companies = await adminService.getCompanies();
+
+  return res.status(200).json({
+    success: true,
+    data: companies,
+  });
+});
+
+export const getOrders = asyncHandler(async (_req: Request, res: Response) => {
+  const orders = await adminService.getOrders();
+
+  return res.status(200).json({
+    success: true,
+    data: orders,
+  });
+});
+
 export const getPendingUsers = asyncHandler(
   async (_req: Request, res: Response) => {
     const users = await adminService.getPendingKyc();
@@ -62,6 +98,26 @@ export const rejectUser = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.id as string;
   const reason = req.body.reason as string | undefined;
   const result = await adminService.rejectUser(userId, reason);
+
+  return res.status(200).json({
+    success: true,
+    message: result.message,
+  });
+});
+
+export const blockUser = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.params.id as string;
+  const result = await adminService.blockUser(userId);
+
+  return res.status(200).json({
+    success: true,
+    message: result.message,
+  });
+});
+
+export const unblockUser = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.params.id as string;
+  const result = await adminService.unblockUser(userId);
 
   return res.status(200).json({
     success: true,
