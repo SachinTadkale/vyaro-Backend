@@ -7,6 +7,8 @@ import {
   releasePayment,
   verifyPayment,
 } from "./payment.service";
+import notificationService from "../notification/notification.service";
+import { NotificationEventType } from "../notification/notification.types";
 import {
   createPaymentOrderSchema,
   paymentOrderParamSchema,
@@ -39,6 +41,12 @@ export const verifyPaymentController = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(verifyPaymentSchema, req.body);
     const result = await verifyPayment(req.user.companyId, payload);
+    if (result.notificationPayload) {
+      void notificationService.sendNotification(
+        NotificationEventType.PAYMENT_SUCCESS,
+        result.notificationPayload,
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -83,6 +91,18 @@ export const razorpayWebhookController = asyncHandler(
     const eventId = req.header("x-razorpay-event-id") ?? undefined;
 
     const result = await handleWebhook(rawBody, signature, eventId);
+    if (
+      result.notificationEvent &&
+      result.notificationPayload &&
+      result.notificationEvent in NotificationEventType
+    ) {
+      void notificationService.sendNotification(
+        NotificationEventType[
+          result.notificationEvent as keyof typeof NotificationEventType
+        ],
+        result.notificationPayload,
+      );
+    }
 
     res.status(200).json({
       success: true,

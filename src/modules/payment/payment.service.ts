@@ -327,6 +327,20 @@ export const verifyPayment = async (
     paymentStatus: heldPayment.status,
     razorpayPaymentId: heldPayment.razorpayPaymentId,
     heldAt: heldPayment.heldAt,
+    notificationPayload: {
+      company: {
+        id: heldPayment.order.company.companyId,
+        name: heldPayment.order.company.companyName,
+        email: heldPayment.order.company.email,
+      },
+      payment: {
+        id: heldPayment.paymentId,
+        orderId: heldPayment.orderId,
+        amount: heldPayment.amount,
+        currency: heldPayment.currency,
+        status: heldPayment.status,
+      },
+    },
   };
 };
 
@@ -429,6 +443,32 @@ export const releasePayment = async (
     releaseMode: releasedPayment.releaseMode,
     releaseReference: releasedPayment.releaseReference,
     releasedAt: releasedPayment.releasedAt,
+    notificationPayload: releasedPayment.user.email
+      ? {
+          user: {
+            id: releasedPayment.user.user_id,
+            name: releasedPayment.user.name,
+            email: releasedPayment.user.email,
+          },
+          payment: {
+            id: releasedPayment.paymentId,
+            orderId: releasedPayment.orderId,
+            amount: releasedPayment.amount,
+            currency: releasedPayment.currency,
+            status: releasedPayment.status,
+            releaseReference: releasedPayment.releaseReference,
+          },
+          order: {
+            id: releasedPayment.order.orderId,
+            status: releasedPayment.order.orderStatus,
+            paymentStatus: releasedPayment.order.paymentStatus,
+            productName: releasedPayment.order.productName,
+            productUnit: releasedPayment.order.productUnit,
+            quantity: releasedPayment.order.quantity,
+            totalAmount: releasedPayment.order.finalPrice,
+          },
+        }
+      : undefined,
   };
 };
 
@@ -491,7 +531,7 @@ export const handleWebhook = async (
   }
 
   if (payload.event === "payment.captured" || payload.event === "order.paid") {
-    await markPaymentVerifiedAndHeld({
+    const heldPayment = await markPaymentVerifiedAndHeld({
       orderId: payment.orderId,
       razorpayOrderId: payment.razorpayOrderId ?? razorpayOrderId,
       razorpayPaymentId:
@@ -505,6 +545,23 @@ export const handleWebhook = async (
     return {
       processed: true,
       reason: "marked_held",
+      notificationEvent: heldPayment?.order.company.email ? "PAYMENT_SUCCESS" : undefined,
+      notificationPayload: heldPayment?.order.company.email
+        ? {
+            company: {
+              id: heldPayment.order.company.companyId,
+              name: heldPayment.order.company.companyName,
+              email: heldPayment.order.company.email,
+            },
+            payment: {
+              id: heldPayment.paymentId,
+              orderId: heldPayment.orderId,
+              amount: heldPayment.amount,
+              currency: heldPayment.currency,
+              status: heldPayment.status,
+            },
+          }
+        : undefined,
     };
   }
 
@@ -518,6 +575,25 @@ export const handleWebhook = async (
     return {
       processed: true,
       reason: "marked_failed",
+      notificationEvent: payment.order.company.email ? "PAYMENT_FAILED" : undefined,
+      notificationPayload: payment.order.company.email
+        ? {
+            company: {
+              id: payment.order.company.companyId,
+              name: payment.order.company.companyName,
+              email: payment.order.company.email,
+            },
+            payment: {
+              id: payment.paymentId,
+              orderId: payment.orderId,
+              amount: payment.amount,
+              currency: payment.currency,
+              status: "FAILED",
+              failureReason:
+                payload.payload?.payment?.entity?.error_description ?? "Payment failed",
+            },
+          }
+        : undefined,
     };
   }
 

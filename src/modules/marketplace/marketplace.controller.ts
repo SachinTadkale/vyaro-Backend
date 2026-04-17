@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import asyncHandler from "../../utils/asyncHandler";
 import * as marketplaceService from "./marketplace.service";
+import notificationService from "../notification/notification.service";
+import { NotificationEventType } from "../notification/notification.types";
 import {
   createListingSchema,
   listingGeoQuerySchema,
@@ -18,6 +20,12 @@ export const createListing = asyncHandler(
       req.user.userId,
       payload,
     );
+    if (result.notificationPayload) {
+      void notificationService.sendNotification(
+        NotificationEventType.LISTING_CREATED,
+        result.notificationPayload,
+      );
+    }
 
     res.status(201).json({
       success: true,

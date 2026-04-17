@@ -1,3 +1,5 @@
+import type { NotificationPayload } from "../notification/notification.types";
+
 export type AdminLoginInput = {
   email: string;
   password: string;
@@ -20,4 +22,5 @@ export type AdminResetPasswordInput = {
 
 export type AdminMessageResult = {
   message: string;
+  notificationPayload?: NotificationPayload;
 };

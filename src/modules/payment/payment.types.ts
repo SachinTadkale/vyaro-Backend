@@ -1,4 +1,5 @@
 import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import type { NotificationPayload } from "../notification/notification.types";
 
 export type RazorpayOrderResponse = {
   id: string;
@@ -34,6 +35,7 @@ export type CreatePaymentOrderResult = {
   status: PaymentStatus;
   receipt: string | null;
   isExistingOrder: boolean;
+  notificationPayload?: NotificationPayload;
 };
 
 export type VerifyPaymentResult = {
@@ -43,6 +45,7 @@ export type VerifyPaymentResult = {
   paymentStatus: PaymentStatus;
   razorpayPaymentId: string | null;
   heldAt: Date | null;
+  notificationPayload?: NotificationPayload;
 };
 
 export type ReleasePaymentResult = {
@@ -53,6 +56,7 @@ export type ReleasePaymentResult = {
   releaseMode: string | null;
   releaseReference: string | null;
   releasedAt: Date | null;
+  notificationPayload?: NotificationPayload;
 };
 
 export type PaymentContextRecord = Prisma.OrderGetPayload<{
