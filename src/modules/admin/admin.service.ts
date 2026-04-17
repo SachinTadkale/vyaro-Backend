@@ -1,6 +1,5 @@
 import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
-import { sendApprovalEmail } from "../../lib/email";
 import ApiError from "../../utils/apiError";
 
 const formatDate = (value: Date) =>
@@ -392,11 +391,18 @@ export const verifyUser = async (userId: string) => {
     },
   });
 
-  if (user.email) {
-    await sendApprovalEmail(user.email, user.name);
-  }
-
-  return { message: "User approved successfully" };
+  return {
+    message: "User approved successfully",
+    notificationPayload: user.email
+      ? {
+          user: {
+            id: user.user_id,
+            name: user.name,
+            email: user.email,
+          },
+        }
+      : undefined,
+  };
 };
 
 export const rejectUser = async (userId: string, reason?: string) => {
@@ -424,7 +430,21 @@ export const rejectUser = async (userId: string, reason?: string) => {
     },
   });
 
-  return { message: "User rejected successfully" };
+  return {
+    message: "User rejected successfully",
+    notificationPayload: user.email
+      ? {
+          user: {
+            id: user.user_id,
+            name: user.name,
+            email: user.email,
+          },
+          metadata: {
+            reason,
+          },
+        }
+      : undefined,
+  };
 };
 
 export const blockUser = async (userId: string) => {

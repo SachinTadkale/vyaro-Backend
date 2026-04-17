@@ -104,6 +104,21 @@ enum LeadRole {
   COMPANY
 }
 
+enum BroadcastType {
+  UPDATE
+  IMPORTANT
+  MAINTENANCE
+  ALERT
+  SUCCESS
+}
+
+enum TargetAudience {
+  ALL
+  USER
+  COMPANY
+  DELIVERY_PARTNER
+}
+
 //////////////////////
 // MODELS
 //////////////////////
@@ -485,4 +500,27 @@ model Lead {
   createdAt DateTime @default(now())
 
   @@map("leads")
+}
+
+model Broadcast {
+  id             String          @id @default(uuid())
+  title          String
+  message        String
+  type           BroadcastType
+  targetAudience TargetAudience
+  isActive       Boolean         @default(true)
+  publishAt      DateTime
+  expiresAt      DateTime?
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  imageUrl String?
+  ctaLabel String?
+  ctaLink  String?
+
+  @@index([isActive, publishAt])
+  @@index([targetAudience, isActive, publishAt])
+  @@index([type, createdAt])
+  @@index([expiresAt])
 }

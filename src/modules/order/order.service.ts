@@ -126,6 +126,23 @@ export const createOrder = async (
   return {
     message: "Order created successfully",
     order: formatOrder(result.order),
+    notificationPayload: {
+      company: {
+        id: result.order.company.companyId,
+        name: result.order.company.companyName,
+        email: result.order.company.email,
+        hqLocation: result.order.company.hqLocation,
+      },
+      order: {
+        id: result.order.orderId,
+        status: result.order.orderStatus,
+        paymentStatus: result.order.paymentStatus,
+        productName: result.order.productName,
+        productUnit: result.order.productUnit,
+        quantity: result.order.quantity,
+        totalAmount: result.order.finalPrice,
+      },
+    },
   };
 };
 
@@ -205,6 +222,23 @@ export const acceptOrder = async (sellerId: string, orderId: string) => {
   return {
     message: "Order accepted successfully",
     order: formatOrder(result.order),
+    notificationPayload: {
+      company: {
+        id: result.order.company.companyId,
+        name: result.order.company.companyName,
+        email: result.order.company.email,
+        hqLocation: result.order.company.hqLocation,
+      },
+      order: {
+        id: result.order.orderId,
+        status: result.order.orderStatus,
+        paymentStatus: result.order.paymentStatus,
+        productName: result.order.productName,
+        productUnit: result.order.productUnit,
+        quantity: result.order.quantity,
+        totalAmount: result.order.finalPrice,
+      },
+    },
   };
 };
 
@@ -237,6 +271,26 @@ export const rejectOrder = async (sellerId: string, orderId: string) => {
   return {
     message: "Order rejected successfully",
     order: formatOrder(result.order),
+    notificationPayload: {
+      company: {
+        id: result.order.company.companyId,
+        name: result.order.company.companyName,
+        email: result.order.company.email,
+        hqLocation: result.order.company.hqLocation,
+      },
+      order: {
+        id: result.order.orderId,
+        status: result.order.orderStatus,
+        paymentStatus: result.order.paymentStatus,
+        productName: result.order.productName,
+        productUnit: result.order.productUnit,
+        quantity: result.order.quantity,
+        totalAmount: result.order.finalPrice,
+      },
+      metadata: {
+        reason: "Seller rejected the order",
+      },
+    },
   };
 };
 
@@ -273,6 +327,26 @@ export const cancelOrder = async (
   return {
     message: "Order cancelled successfully",
     order: formatOrder(result.order),
+    notificationPayload: {
+      company: {
+        id: result.order.company.companyId,
+        name: result.order.company.companyName,
+        email: result.order.company.email,
+        hqLocation: result.order.company.hqLocation,
+      },
+      order: {
+        id: result.order.orderId,
+        status: result.order.orderStatus,
+        paymentStatus: result.order.paymentStatus,
+        productName: result.order.productName,
+        productUnit: result.order.productUnit,
+        quantity: result.order.quantity,
+        totalAmount: result.order.finalPrice,
+      },
+      metadata: {
+        reason: "Company cancelled the order",
+      },
+    },
   };
 };
 

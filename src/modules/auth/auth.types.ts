@@ -1,4 +1,5 @@
 import { Gender } from "@prisma/client";
+import type { NotificationPayload } from "../notification/notification.types";
 
 export type RegisterInput = {
   name: string;
@@ -37,6 +38,7 @@ export type ResetPasswordInput = {
 export type RegisterResult = {
   message: string;
   token: string;
+  notificationPayload?: NotificationPayload;
 };
 
 export type LoginResult = {
@@ -45,6 +47,7 @@ export type LoginResult = {
 
 export type RequestOtpResult = {
   message: string;
+  notificationPayload?: NotificationPayload;
 };
 
 export type LoginWithOtpResult = {
@@ -53,6 +56,7 @@ export type LoginWithOtpResult = {
 
 export type ForgotPasswordResult = {
   message: string;
+  notificationPayload?: NotificationPayload;
 };
 
 export type ResetPasswordResult = {

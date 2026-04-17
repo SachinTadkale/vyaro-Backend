@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import asyncHandler from "../../utils/asyncHandler";
 import * as adminService from "./admin.service";
+import notificationService from "../notification/notification.service";
+import { NotificationEventType } from "../notification/notification.types";
 
 export const getAdminStats = asyncHandler(async (_req: Request, res: Response) => {
   const stats = await adminService.getAdminStats();
@@ -87,6 +89,12 @@ export const rejectCompany = asyncHandler(
 export const approveUser = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.id as string;
   const result = await adminService.verifyUser(userId);
+  if (result.notificationPayload) {
+    void notificationService.sendNotification(
+      NotificationEventType.USER_APPROVED,
+      result.notificationPayload,
+    );
+  }
 
   return res.status(200).json({
     success: true,
@@ -98,6 +106,12 @@ export const rejectUser = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.id as string;
   const reason = req.body.reason as string | undefined;
   const result = await adminService.rejectUser(userId, reason);
+  if (result.notificationPayload) {
+    void notificationService.sendNotification(
+      NotificationEventType.USER_REJECTED,
+      result.notificationPayload,
+    );
+  }
 
   return res.status(200).json({
     success: true,

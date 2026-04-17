@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
 import { OtpType, UserRole } from "@prisma/client";
 import prisma from "../../config/prisma";
-import { sendPasswordResetOtp } from "../../lib/email";
 import { generateToken } from "../../lib/jwt";
 import otpService from "../otp/otp.service";
 import ApiError from "../../utils/apiError";
@@ -74,9 +73,19 @@ export const forgotPasswordAdmin = async (
 
   const otpCode = await otpService.generateOtp(user.user_id, OtpType.RESET_PASSWORD);
 
-  await sendPasswordResetOtp(user.email, user.name, otpCode);
-
-  return { message: "Admin password reset OTP sent to email." };
+  return {
+    message: "Admin password reset OTP sent to email.",
+    notificationPayload: {
+      user: {
+        id: user.user_id,
+        name: user.name,
+        email: user.email,
+      },
+      metadata: {
+        otp: otpCode,
+      },
+    },
+  };
 };
 
 export const resetPasswordAdmin = async (

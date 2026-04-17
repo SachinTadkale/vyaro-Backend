@@ -22,6 +22,7 @@ import orderRoutes from "./modules/order/order.routes";
 import paymentRoutes, {
   paymentWebhookRoutes,
 } from "./modules/payment/payment.routes";
+import broadcastRoutes from "./modules/broadcast/broadcast.routes";
 import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
@@ -52,6 +53,7 @@ app.use("/api/delivery-partner", deliveryPartnerRoutes);
 app.use("/api/disputes", disputeRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/broadcasts", broadcastRoutes);
 
 /* ---------------- 404 HANDLER ---------------- */
 

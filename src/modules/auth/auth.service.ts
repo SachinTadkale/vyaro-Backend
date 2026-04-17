@@ -2,7 +2,6 @@ import bcrypt from "bcrypt";
 import { OtpType, User, UserRole, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
-import { sendOtpEmail, sendPasswordResetOtp } from "../../lib/email";
 import { generateToken } from "../../lib/jwt";
 import otpService from "../otp/otp.service";
 import type {
@@ -90,6 +89,15 @@ export const register = async (data: RegisterInput): Promise<RegisterResult> => 
   return {
     message: "Registration successful. Continue onboarding.",
     token,
+    notificationPayload: user.email
+      ? {
+          user: {
+            id: user.user_id,
+            name: user.name,
+            email: user.email,
+          },
+        }
+      : undefined,
   };
 };
 
@@ -147,9 +155,19 @@ export const requestOtp = async (
   const email = requireUserEmail(user);
   const otpCode = await otpService.generateOtp(user.user_id, OtpType.LOGIN);
 
-  await sendOtpEmail(email, user.name, otpCode);
-
-  return { message: "OTP sent to your email." };
+  return {
+    message: "OTP sent to your email.",
+    notificationPayload: {
+      user: {
+        id: user.user_id,
+        name: user.name,
+        email,
+      },
+      metadata: {
+        otp: otpCode,
+      },
+    },
+  };
 };
 
 export const loginWithOtp = async (
@@ -201,9 +219,19 @@ export const forgotPassword = async (
     OtpType.RESET_PASSWORD
   );
 
-  await sendPasswordResetOtp(email, user.name, otpCode);
-
-  return { message: "Password reset OTP sent to email." };
+  return {
+    message: "Password reset OTP sent to email.",
+    notificationPayload: {
+      user: {
+        id: user.user_id,
+        name: user.name,
+        email,
+      },
+      metadata: {
+        otp: otpCode,
+      },
+    },
+  };
 };
 
 export const resetPassword = async (

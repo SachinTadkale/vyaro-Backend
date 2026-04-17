@@ -114,6 +114,8 @@ const ensureVerifiedSeller = async (userId: string) => {
     where: { user_id: userId },
     select: {
       user_id: true,
+      name: true,
+      email: true,
       verificationStatus: true,
     },
   });
@@ -125,13 +127,15 @@ const ensureVerifiedSeller = async (userId: string) => {
   if (user.verificationStatus !== VerificationStatus.VERIFIED) {
     throw new ApiError(403, "Seller must be verified to create listings");
   }
+
+  return user;
 };
 
 export const createListing = async (
   sellerId: string,
   data: CreateListingInput,
 ) => {
-  await ensureVerifiedSeller(sellerId);
+  const seller = await ensureVerifiedSeller(sellerId);
 
   const product = await findProductOwnedBySeller(data.productId, sellerId);
 
@@ -154,6 +158,24 @@ export const createListing = async (
   return {
     message: "Listing created successfully",
     listing: formatListing(listing),
+    notificationPayload: seller.email
+      ? {
+          user: {
+            id: seller.user_id,
+            name: seller.name,
+            email: seller.email,
+          },
+          listing: {
+            id: listing.listingId,
+            productName: listing.product.productName,
+            category: listing.product.category,
+            unit: listing.product.unit,
+            price: listing.price,
+            quantity: listing.quantity,
+            status: listing.status,
+          },
+        }
+      : undefined,
   };
 };
 
