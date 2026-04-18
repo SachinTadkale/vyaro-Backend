@@ -7,6 +7,8 @@ import {
   acceptOrder,
   cancelOrder,
   createOrder,
+  getFarmerOrderById,
+  getFarmerOrders,
   getCompanyOrderById,
   getCompanyOrders,
   rejectOrder,
@@ -24,6 +26,12 @@ const farmerOrderDecisionLimiter = createRateLimiter({
   keyPrefix: "farmer-order-decision",
   windowMs: 60 * 1000,
   maxRequests: 30,
+});
+
+const farmerOrderReadLimiter = createRateLimiter({
+  keyPrefix: "farmer-order-read",
+  windowMs: 60 * 1000,
+  maxRequests: 120,
 });
 
 router.post(
@@ -72,6 +80,24 @@ router.patch(
   verifiedOnly,
   farmerOrderDecisionLimiter,
   rejectOrder,
+);
+
+router.get(
+  "/farmer/getFarmerOrders",
+  authMiddleware,
+  requireActor("USER"),
+  verifiedOnly,
+  farmerOrderReadLimiter,
+  getFarmerOrders,
+);
+
+router.get(
+  "/farmer/getFarmerOrderById/:id",
+  authMiddleware,
+  requireActor("USER"),
+  verifiedOnly,
+  farmerOrderReadLimiter,
+  getFarmerOrderById,
 );
 
 export default router;

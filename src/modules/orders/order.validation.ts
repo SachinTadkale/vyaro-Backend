@@ -16,6 +16,16 @@ export const companyOrdersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
   status: z.string().trim().min(1).optional(),
+  search: z.string().trim().min(1).optional(),
+  sortBy: z.enum(["createdAt", "finalPrice"]).default("createdAt"),
+  order: z.enum(["asc", "desc"]).default("desc"),
+});
+
+export const farmerOrdersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(10),
+  status: z.string().trim().min(1).optional(),
+  search: z.string().trim().min(1).optional(),
   sortBy: z.enum(["createdAt", "finalPrice"]).default("createdAt"),
   order: z.enum(["asc", "desc"]).default("desc"),
 });
@@ -36,3 +46,4 @@ export const validateSchema = <T>(schema: ZodType<T>, data: unknown): T => {
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CompanyOrdersQuery = z.infer<typeof companyOrdersQuerySchema>;
+export type FarmerOrdersQuery = z.infer<typeof farmerOrdersQuerySchema>;

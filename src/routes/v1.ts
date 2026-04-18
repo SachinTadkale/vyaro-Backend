@@ -53,7 +53,7 @@ apiV1Router.use("/admin", adminRoutes);
 
 /* ---------------- FARMING ---------------- */
 apiV1Router.use("/farms", farmRoutes);
-apiV1Router.use("/marketplace-listings", marketplaceRoutes);
+apiV1Router.use("/marketplace", marketplaceRoutes);
 apiV1Router.use("/products", productRoutes);
 
 /* ---------------- ORDERS & PAYMENTS ---------------- */

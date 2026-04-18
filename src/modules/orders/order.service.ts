@@ -4,12 +4,18 @@ import {
   createOrderWithReservation,
   findCompanyOrderById,
   findCompanyOrders,
+  findFarmerOrders,
   findFarmerOrderById,
+  findUserById,
   findVerifiedCompanyById,
   OrderDetailsRecord,
   updateOrderStatus,
 } from "./order.repository";
-import { CompanyOrdersQuery, CreateOrderInput } from "./order.validation";
+import {
+  CompanyOrdersQuery,
+  CreateOrderInput,
+  FarmerOrdersQuery,
+} from "./order.validation";
 
 const formatOrder = (order: OrderDetailsRecord) => ({
   id: order.orderId,
@@ -143,6 +149,21 @@ export const createOrder = async (
         totalAmount: result.order.finalPrice,
       },
     },
+    sellerNotificationPayload: {
+      user: await findUserById(result.order.sellerId),
+      company: {
+        id: result.order.company.companyId,
+        name: result.order.company.companyName,
+      },
+      order: {
+        id: result.order.orderId,
+        status: result.order.orderStatus,
+        productName: result.order.productName,
+        productUnit: result.order.productUnit,
+        quantity: result.order.quantity,
+        totalAmount: result.order.finalPrice,
+      },
+    },
   };
 };
 
@@ -160,6 +181,7 @@ export const getCompanyOrders = async (
   const { orders, total } = await findCompanyOrders({
     companyId: companyId!,
     status,
+    search: query.search,
     skip,
     take: limit,
     sortBy: query.sortBy,
@@ -175,6 +197,63 @@ export const getCompanyOrders = async (
       totalPages: Math.ceil(total / limit),
     },
   };
+};
+
+export const getFarmerOrders = async (
+  sellerId: string | undefined,
+  query: FarmerOrdersQuery,
+) => {
+  if (!sellerId) {
+    throw new ApiError(401, "Unauthorized", {
+      code: "UNAUTHORIZED",
+    });
+  }
+
+  const page = query.page;
+  const limit = query.limit;
+  const skip = (page - 1) * limit;
+  const status = parseOrderStatus(query.status);
+
+  const { orders, total } = await findFarmerOrders({
+    sellerId,
+    status,
+    search: query.search,
+    skip,
+    take: limit,
+    sortBy: query.sortBy,
+    order: query.order,
+  });
+
+  return {
+    data: orders.map(formatOrder),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+export const getFarmerOrderById = async (
+  sellerId: string | undefined,
+  orderId: string,
+) => {
+  if (!sellerId) {
+    throw new ApiError(401, "Unauthorized", {
+      code: "UNAUTHORIZED",
+    });
+  }
+
+  const order = await findFarmerOrderById(orderId, sellerId);
+
+  if (!order) {
+    throw new ApiError(404, "Order not found", {
+      code: "ORDER_NOT_FOUND",
+    });
+  }
+
+  return formatOrder(order);
 };
 
 export const getCompanyOrderById = async (

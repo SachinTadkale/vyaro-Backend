@@ -59,6 +59,17 @@ export const findVerifiedCompanyById = (companyId: string) => {
   });
 };
 
+export const findUserById = (userId: string) => {
+  return prisma.user.findUnique({
+    where: { user_id: userId },
+    select: {
+      user_id: true,
+      name: true,
+      email: true,
+    },
+  });
+};
+
 export const findCompanyOrderById = (orderId: string, companyId: string) => {
   return prisma.order.findFirst({
     where: {
@@ -82,6 +93,7 @@ export const findFarmerOrderById = (orderId: string, sellerId: string) => {
 export const findCompanyOrders = async ({
   companyId,
   status,
+  search,
   skip,
   take,
   sortBy,
@@ -89,6 +101,7 @@ export const findCompanyOrders = async ({
 }: {
   companyId: string;
   status?: OrderStatus;
+  search?: string;
   skip: number;
   take: number;
   sortBy: "createdAt" | "finalPrice";
@@ -97,6 +110,68 @@ export const findCompanyOrders = async ({
   const where: Prisma.OrderWhereInput = {
     companyId,
     ...(status ? { orderStatus: status } : {}),
+    ...(search
+      ? {
+          OR: [
+            { productName: { contains: search, mode: "insensitive" } },
+            {
+              company: {
+                is: { companyName: { contains: search, mode: "insensitive" } },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [orders, total] = await prisma.$transaction([
+    prisma.order.findMany({
+      where,
+      skip,
+      take,
+      orderBy: {
+        [sortBy]: order,
+      },
+      select: orderDetailsSelect,
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  return { orders, total };
+};
+
+export const findFarmerOrders = async ({
+  sellerId,
+  status,
+  search,
+  skip,
+  take,
+  sortBy,
+  order,
+}: {
+  sellerId: string;
+  status?: OrderStatus;
+  search?: string;
+  skip: number;
+  take: number;
+  sortBy: "createdAt" | "finalPrice";
+  order: "asc" | "desc";
+}) => {
+  const where: Prisma.OrderWhereInput = {
+    sellerId,
+    ...(status ? { orderStatus: status } : {}),
+    ...(search
+      ? {
+          OR: [
+            { productName: { contains: search, mode: "insensitive" } },
+            {
+              company: {
+                is: { companyName: { contains: search, mode: "insensitive" } },
+              },
+            },
+          ],
+        }
+      : {}),
   };
 
   const [orders, total] = await prisma.$transaction([
