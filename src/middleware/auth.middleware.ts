@@ -10,11 +10,19 @@ export const authMiddleware = (
 
   if (!authHeader) {
     return res.status(401).json({
+      success: false,
       message: "Unauthorized",
     });
   }
 
-  const token = authHeader.split(" ")[1];
+  const [scheme, token] = authHeader.split(" ");
+
+  if (scheme !== "Bearer" || !token) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid authorization header",
+    });
+  }
 
   try {
     const decoded: JwtPayload = verifyToken(token);
@@ -29,6 +37,7 @@ export const authMiddleware = (
     next();
   } catch {
     return res.status(401).json({
+      success: false,
       message: "Invalid token",
     });
   }

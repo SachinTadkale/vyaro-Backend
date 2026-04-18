@@ -24,8 +24,28 @@ export const getPendingKyc = async () => {
         isNot: null,
       },
     },
-    include: {
-      kyc: true,
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      user_id: true,
+      name: true,
+      phone_no: true,
+      email: true,
+      address: true,
+      verificationStatus: true,
+      createdAt: true,
+      updatedAt: true,
+      kyc: {
+        select: {
+          kycId: true,
+          docType: true,
+          docNo: true,
+          frontImage: true,
+          backImage: true,
+          createdAt: true,
+        },
+      },
     },
   });
 };
@@ -310,6 +330,20 @@ export const getPendingCompanyVerifications = async () => {
     },
     orderBy: {
       createdAt: "desc",
+    },
+    select: {
+      companyId: true,
+      companyName: true,
+      registrationNo: true,
+      hqLocation: true,
+      gstNumber: true,
+      email: true,
+      gstCertificateUrl: true,
+      licenseDocUrl: true,
+      profileImageUrl: true,
+      verification: true,
+      createdAt: true,
+      updatedAt: true,
     },
   });
 };

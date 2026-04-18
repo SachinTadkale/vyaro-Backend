@@ -5,6 +5,23 @@ import {
 } from "./notification.types";
 
 class NotificationService {
+  private sanitizePayload(payload: NotificationPayload) {
+    const metadata =
+      payload.metadata && typeof payload.metadata === "object"
+        ? {
+            ...payload.metadata,
+            ...(Object.prototype.hasOwnProperty.call(payload.metadata, "otp")
+              ? { otp: "[REDACTED]" }
+              : {}),
+          }
+        : payload.metadata;
+
+    return {
+      ...payload,
+      metadata,
+    };
+  }
+
   async sendNotification(
     eventType: NotificationEventType,
     payload: NotificationPayload
@@ -14,7 +31,7 @@ class NotificationService {
     } catch (error) {
       console.error("[notification] failed to send notification", {
         eventType,
-        payload,
+        payload: this.sanitizePayload(payload),
         error,
       });
     }
