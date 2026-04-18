@@ -12,8 +12,10 @@ const TransactionReadLimiter = createRateLimiter({
 });
 
 router.get(
-  "/transactions",
+  "/getTransactions",
+  TransactionReadLimiter,
   authMiddleware,
   getTransactionsController,
-  TransactionReadLimiter,
 );
+
+export default router;
