@@ -4,6 +4,7 @@
 
 ### Added
 - Broadcast module for system-wide messaging
+- Email template for all notificatino
 
 ### Improved
 - Enhanced backend security (error handling & response sanitization)

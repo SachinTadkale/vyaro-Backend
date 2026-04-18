@@ -72,6 +72,39 @@ enum PaymentStatus {
   FROZEN
 }
 
+enum TransactionType {
+  ORDER_PAYMENT // company pays (escrow)
+  ESCROW_HOLD // money held
+  ESCROW_RELEASE // release to farmer
+  DELIVERY_PAYOUT // to delivery partner
+  PLATFORM_COMMISSION // platform earnings
+  REFUND // refund to company
+  PENALTY // optional future
+}
+
+enum TransactionDirection {
+  CREDIT
+  DEBIT
+}
+
+enum ActorType {
+  USER
+  COMPANY
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PayoutStatus {
+  INITIATED
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
 enum DisputeStatus {
   OPEN
   UNDER_REVIEW
@@ -148,6 +181,8 @@ model User {
   bankDetails   BankDetails?
   products      Product[]
   otps          Otp[]
+  transactions  Transaction[]   @relation("UserTransactions")
+  payouts       Payout[]
   kyc           Kyc?
 
   @@index([phone_no])
@@ -184,9 +219,10 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  inventories Inventory[]
-  orders      Order[]
-  payments    Payment[]
+  inventories  Inventory[]
+  orders       Order[]
+  payments     Payment[]
+  transactions Transaction[] @relation("CompanyTransactions")
 }
 
 model Inventory {
@@ -248,7 +284,7 @@ model MarketListing {
 }
 
 model Order {
-  orderId   String @id @default(uuid()) 
+  orderId   String @id @default(uuid())
   listingId String
   companyId String
   sellerId  String
@@ -256,6 +292,8 @@ model Order {
 
   quantity   Float
   unitPrice  Float
+  deliveryFee Float?
+  platformFee Float?
   finalPrice Float
 
   productName     String
@@ -273,9 +311,10 @@ model Order {
   listing MarketListing @relation(fields: [listingId], references: [listingId])
   company Company       @relation(fields: [companyId], references: [companyId])
 
-  payment  Payment?
-  delivery Delivery?
-  disputes Dispute[]
+  payment      Payment?
+  delivery     Delivery?
+  disputes     Dispute[]
+  transactions Transaction[] @relation("OrderTransactions")
 
   @@index([companyId])
   @@index([companyId, createdAt])
@@ -334,18 +373,18 @@ model DeliveryPartner {
 }
 
 model Dispute {
-  id               String        @id @default(uuid())
-  orderId          String
-  raisedBy         String
+  id                String        @id @default(uuid())
+  orderId           String
+  raisedBy          String
   raisedByActorType String
-  reason           String
-  description      String
-  status           DisputeStatus @default(OPEN)
-  resolutionNote   String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  resolvedAt       DateTime?
-  resolvedBy       String?
+  reason            String
+  description       String
+  status            DisputeStatus @default(OPEN)
+  resolutionNote    String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  resolvedAt        DateTime?
+  resolvedBy        String?
 
   order Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
 
@@ -384,15 +423,18 @@ model Payment {
   companyId String
   userId    String
 
-  amount        Float
-  amountInPaise Int
-  currency      String        @default("INR")
-  status        PaymentStatus @default(INITIATED)
-  method        String?
-  receipt       String?
-  idempotencyKey String?
-  failureReason String?
-  releaseMode   String?
+  amount           Float
+  amountInPaise    Int
+  platformFee      Float?
+  deliveryFee      Float?
+  farmerAmount     Float?
+  currency         String        @default("INR")
+  status           PaymentStatus @default(INITIATED)
+  method           String?
+  receipt          String?
+  idempotencyKey   String?
+  failureReason    String?
+  releaseMode      String?
   releaseReference String?
 
   razorpayOrderId   String? @unique
@@ -413,7 +455,7 @@ model Payment {
   company Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [user_id], onDelete: Cascade)
 
-  transactions Transaction[]
+  transactions  Transaction[]
   webhookEvents PaymentWebhookEvent[]
 
   @@index([orderId])
@@ -449,21 +491,59 @@ model BankDetails {
   ifscIV                 String
   ifscLast4              String
 
-  user         User          @relation(fields: [userId], references: [user_id], onDelete: Cascade)
-  transactions Transaction[]
+  user User @relation(fields: [userId], references: [user_id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Transaction {
   transactionId String @id @default(uuid())
-  bankDetailsId String
-  paymentId     String
 
-  bankDetails BankDetails @relation(fields: [bankDetailsId], references: [id], onDelete: Cascade)
-  payment     Payment     @relation(fields: [paymentId], references: [paymentId], onDelete: Cascade)
+  paymentId String
+  orderId   String?
 
-  @@index([paymentId])
+  userId    String?
+  companyId String?
+
+  actorType ActorType
+
+  amount        Float
+  amountInPaise Int
+  currency      String @default("INR")
+
+  type      TransactionType
+  direction TransactionDirection
+  status    TransactionStatus    @default(PENDING)
+
+  isEscrow Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payment Payment  @relation(fields: [paymentId], references: [paymentId], onDelete: Cascade)
+  order   Order?   @relation("OrderTransactions", fields: [orderId], references: [orderId])
+  user    User?    @relation("UserTransactions", fields: [userId], references: [user_id])
+  company Company? @relation("CompanyTransactions", fields: [companyId], references: [companyId])
+
+  @@index([userId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+model Payout {
+  payoutId String @id @default(uuid())
+
+  userId String
+  amount Float
+
+  status PayoutStatus @default(INITIATED)
+
+  transactionId String
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [user_id])
+
+  @@index([userId, status])
 }
 
 model Otp {
@@ -503,17 +583,17 @@ model Lead {
 }
 
 model Broadcast {
-  id             String          @id @default(uuid())
+  id             String         @id @default(uuid())
   title          String
   message        String
   type           BroadcastType
   targetAudience TargetAudience
-  isActive       Boolean         @default(true)
+  isActive       Boolean        @default(true)
   publishAt      DateTime
   expiresAt      DateTime?
   createdBy      String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   imageUrl String?
   ctaLabel String?

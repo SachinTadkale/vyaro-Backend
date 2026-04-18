@@ -34,6 +34,9 @@ import deliveryPartnerRoutes from "../modules/delivery-partners/v1/delivery-part
 import broadcastRoutes from "../modules/broadcasts/v1/broadcast.routes";
 import leadsRoutes from "../modules/leads/v1/leads.routes";
 
+// transactions
+import transactionRoutes from "../modules/transactions/v1/transactions.routes";
+
 const apiV1Router = Router();
 
 /* ---------------- AUTH ---------------- */
@@ -64,6 +67,9 @@ apiV1Router.use("/disputes", disputeRoutes);
 /* ---------------- LOGISTICS ---------------- */
 apiV1Router.use("/deliveries", deliveryRoutes);
 apiV1Router.use("/delivery-partners", deliveryPartnerRoutes);
+
+/* ---------------- Transaction ---------------- */
+apiV1Router.use("/transactions", transactionRoutes);
 
 /* ---------------- OTHER ---------------- */
 apiV1Router.use("/banks", bankRoutes);
