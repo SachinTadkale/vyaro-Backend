@@ -2,6 +2,10 @@
 
 Base URL: `http://localhost:5000`
 
+Primary API version prefix: `/api/v1`
+
+Compatibility note: all routes in this document use `v1`. The legacy `/api/...` prefix is still mounted temporarily for backward compatibility, but new integrations should use `/api/v1/...`.
+
 This document is organized module-by-module in alphabetical order. For every API, it covers:
 
 - purpose
@@ -32,16 +36,16 @@ Content-Type: multipart/form-data
 
 ### Token map
 
-- `ADMIN_TOKEN`: get from `POST /api/admin-auth/login`
+- `ADMIN_TOKEN`: get from `POST /api/v1/admin-auth/login`
   Use for admin APIs, payment release, and delivery override actions.
 
-- `COMPANY_TOKEN`: get from `POST /api/companyAuth/login`
+- `COMPANY_TOKEN`: get from `POST /api/v1/companyAuth/login`
   Use for company order APIs, payment create/verify, and delivery assignment.
 
-- `DELIVERY_PARTNER_TOKEN`: get from `POST /api/auth/login`
+- `DELIVERY_PARTNER_TOKEN`: get from `POST /api/v1/auth/login`
   Use a user whose role is `DELIVERY_PARTNER`; this token is for assigned delivery read/update actions.
 
-- `FARMER_TOKEN`: get from `POST /api/auth/login`
+- `FARMER_TOKEN`: get from `POST /api/v1/auth/login`
   Use for farm, bank, KYC, product, marketplace seller, and farmer order actions.
 
 ### Suggested test data setup
@@ -52,19 +56,19 @@ Prepare these records before full end-to-end testing:
 - one verified company
 - one admin user
 - one verified delivery partner user with role `DELIVERY_PARTNER`
-- one `DeliveryPartner` profile created explicitly via `POST /api/delivery-partner/profile`
+- one `DeliveryPartner` profile created explicitly via `POST /api/v1/delivery-partner/profile`
 - one product owned by the farmer
 - one active SELL listing
 
-## A. Admin Auth Module
+## A. Auth Module (Admin)
 
-Base path: `/api/admin-auth`
+Base path: `/api/v1/auth/admin`
 
 ### A.1 Login Admin
 
 - Purpose: authenticate an admin and get `ADMIN_TOKEN`
 - Method: `POST`
-- Route: `/api/admin-auth/login`
+- Route: `/api/v1/auth/admin/login`
 - Access: public
 
 Request body:
@@ -111,7 +115,7 @@ How to test:
 
 - Purpose: request OTP for admin password reset
 - Method: `POST`
-- Route: `/api/admin-auth/forgotPassword`
+- Route: `/api/v1/auth/admin/forgotPassword`
 - Access: public
 
 Request body:
@@ -135,7 +139,7 @@ Sample success response:
 
 - Purpose: reset admin password using OTP
 - Method: `POST`
-- Route: `/api/admin-auth/resetPassword`
+- Route: `/api/v1/auth/admin/resetPassword`
 - Access: public
 
 Request body:
@@ -160,7 +164,7 @@ Sample success response:
 
 ## B. Admin Module
 
-Base path: `/api/admin`
+Base path: `/api/v1/admin`
 
 Use `ADMIN_TOKEN` for every route below.
 
@@ -168,7 +172,7 @@ Use `ADMIN_TOKEN` for every route below.
 
 - Purpose: approve company verification so it can operate as a verified company
 - Method: `PATCH`
-- Route: `/api/admin/companies/:id/approve`
+- Route: `/api/v1/admin/companies/:id/approve`
 - Access: admin only
 
 Request body:
@@ -197,7 +201,7 @@ How to test:
 
 - Purpose: approve user verification/KYC
 - Method: `PATCH`
-- Route: `/api/admin/users/:id/approve`
+- Route: `/api/v1/admin/users/:id/approve`
 - Access: admin only
 
 Request body:
@@ -219,7 +223,7 @@ Sample success response:
 
 - Purpose: list companies awaiting admin review
 - Method: `GET`
-- Route: `/api/admin/companies/pending-verification`
+- Route: `/api/v1/admin/companies/pending-verification`
 - Access: admin only
 
 Sample success response:
@@ -245,7 +249,7 @@ Sample success response:
 
 - Purpose: list users whose KYC is pending
 - Method: `GET`
-- Route: `/api/admin/users/pending-kyc`
+- Route: `/api/v1/admin/users/pending-kyc`
 - Access: admin only
 
 Sample success response:
@@ -273,7 +277,7 @@ Sample success response:
 
 - Purpose: reject company verification
 - Method: `PATCH`
-- Route: `/api/admin/companies/:id/reject`
+- Route: `/api/v1/admin/companies/:id/reject`
 - Access: admin only
 
 Request body:
@@ -295,7 +299,7 @@ Sample success response:
 
 - Purpose: reject user KYC
 - Method: `PATCH`
-- Route: `/api/admin/users/:id/reject`
+- Route: `/api/v1/admin/users/:id/reject`
 - Access: admin only
 
 Request body:
@@ -315,15 +319,15 @@ Sample success response:
 }
 ```
 
-## C. Auth Module
+## C. Auth Module (User)
 
-Base path: `/api/auth`
+Base path: `/api/v1/auth/user`
 
 ### C.1 Forgot Password
 
 - Purpose: request OTP for user password reset
 - Method: `POST`
-- Route: `/api/auth/forgotPassword`
+- Route: `/api/v1/auth/user/forgotPassword`
 - Access: public
 
 Request body:
@@ -347,7 +351,7 @@ Sample success response:
 
 - Purpose: authenticate a user and get `FARMER_TOKEN` or `DELIVERY_PARTNER_TOKEN`
 - Method: `POST`
-- Route: `/api/auth/login`
+- Route: `/api/v1/auth/user/login`
 - Access: public
 
 Request body:
@@ -395,7 +399,7 @@ How to test:
 
 - Purpose: login user using OTP
 - Method: `POST`
-- Route: `/api/auth/loginWithOtp`
+- Route: `/api/v1/auth/user/loginWithOtp`
 - Access: public
 
 Request body:
@@ -420,7 +424,7 @@ Sample success response:
 
 - Purpose: create a normal user/farmer account
 - Method: `POST`
-- Route: `/api/auth/register`
+- Route: `/api/v1/auth/user/register`
 - Access: public
 
 Request body:
@@ -450,7 +454,7 @@ Sample success response:
 
 - Purpose: request login OTP for user
 - Method: `POST`
-- Route: `/api/auth/requestOtp`
+- Route: `/api/v1/auth/user/requestOtp`
 - Access: public
 
 Request body:
@@ -474,7 +478,7 @@ Sample success response:
 
 - Purpose: reset user password using OTP
 - Method: `POST`
-- Route: `/api/auth/resetPassword`
+- Route: `/api/v1/auth/user/resetPassword`
 - Access: public
 
 Request body:
@@ -497,15 +501,15 @@ Sample success response:
 }
 ```
 
-## D. Bank Module
+## D. Banks Module
 
-Base path: `/api/bank`
+Base path: `/api/v1/banks`
 
 ### D.1 Add Bank Details
 
 - Purpose: save farmer bank details for future payment release
 - Method: `POST`
-- Route: `/api/bank/`
+- Route: `/api/v1/banks/`
 - Access: authenticated user
 - Recommended token: `FARMER_TOKEN`
 
@@ -552,15 +556,15 @@ Testing notes:
 - full IFSC is never returned
 - bank details are required before payment release to the farmer
 
-## E. Company Auth Module
+## E. Auth Module (Company)
 
-Base path: `/api/companyAuth`
+Base path: `/api/v1/auth/company`
 
 ### E.1 Login Company
 
 - Purpose: authenticate company and get `COMPANY_TOKEN`
 - Method: `POST`
-- Route: `/api/companyAuth/login`
+- Route: `/api/v1/auth/company/login`
 - Access: public
 
 Request body:
@@ -587,14 +591,14 @@ Sample success response:
 
 - Purpose: logout company session
 - Method: `POST`
-- Route: `/api/companyAuth/logout`
+- Route: `/api/v1/auth/company/logout`
 - Access: route exists publicly in current code
 
 ### E.3 Register Company
 
 - Purpose: create company account
 - Method: `POST`
-- Route: `/api/companyAuth/register`
+- Route: `/api/v1/auth/company/register`
 - Access: public
 
 Request body:
@@ -627,7 +631,7 @@ Sample success response:
 
 - Purpose: upload GST and license docs for verification
 - Method: `POST`
-- Route: `/api/companyAuth/upload-documents`
+- Route: `/api/v1/auth/company/upload-documents`
 - Access: public in current route setup
 - Content-Type: `multipart/form-data`
 
@@ -660,9 +664,9 @@ How to test:
 3. Upload both documents.
 4. Then approve from admin module.
 
-## F. Company Profile Module
+## F. Companies Module
 
-Base path: `/api/companyProfile`
+Base path: `/api/v1/companies`
 
 Use `COMPANY_TOKEN`.
 
@@ -670,7 +674,7 @@ Use `COMPANY_TOKEN`.
 
 - Purpose: remove company profile image
 - Method: `DELETE`
-- Route: `/api/companyProfile/profile-image`
+- Route: `/api/v1/companies/profile-image`
 - Access: authenticated company
 
 Sample success response:
@@ -689,7 +693,7 @@ Sample success response:
 
 - Purpose: fetch current company profile
 - Method: `GET`
-- Route: `/api/companyProfile/`
+- Route: `/api/v1/companies/`
 - Access: authenticated company
 
 Sample success response:
@@ -711,7 +715,7 @@ Sample success response:
 
 - Purpose: upload or update company profile image
 - Method: `PUT`
-- Route: `/api/companyProfile/profile-image`
+- Route: `/api/v1/companies/profile-image`
 - Access: authenticated company
 - Content-Type: `multipart/form-data`
 
@@ -733,9 +737,9 @@ Sample success response:
 }
 ```
 
-## G. Delivery Module
+## G. Deliveries Module
 
-Base path: `/api/delivery`
+Base path: `/api/v1/deliveries`
 
 Delivery FSM:
 
@@ -754,7 +758,7 @@ CANCELLED
 
 - Purpose: assign a delivery partner after payment is completed
 - Method: `POST`
-- Route: `/api/delivery/assign`
+- Route: `/api/v1/deliveries/assign`
 - Access: `COMPANY_TOKEN` or `ADMIN_TOKEN`
 - Rate limit: `10/min`
 
@@ -837,7 +841,7 @@ How to test:
 
 - Purpose: assign the next available delivery partner automatically
 - Method: `POST`
-- Route: `/api/delivery/auto-assign`
+- Route: `/api/v1/deliveries/auto-assign`
 - Access: `COMPANY_TOKEN` or `ADMIN_TOKEN`
 - Rate limit: `10/min`
 
@@ -867,7 +871,7 @@ Sample success response:
 
 - Purpose: fetch delivery with order summary and partner details
 - Method: `GET`
-- Route: `/api/delivery/:id`
+- Route: `/api/v1/deliveries/:id`
 - Access:
   - `COMPANY_TOKEN` for owning company
   - `DELIVERY_PARTNER_TOKEN` for assigned partner
@@ -907,7 +911,7 @@ How to test:
 
 - Purpose: update status of a delivery
 - Method: `PATCH`
-- Route: `/api/delivery/:id/status`
+- Route: `/api/v1/deliveries/:id/status`
 - Access:
   - primary: `DELIVERY_PARTNER_TOKEN`
   - override: `COMPANY_TOKEN`
@@ -989,7 +993,7 @@ Testing checklist:
 
 ### G.5 Delivery Partner Profile APIs
 
-Base path: `/api/delivery-partner`
+Base path: `/api/v1/delivery-partners`
 
 Use `DELIVERY_PARTNER_TOKEN` for every route below.
 
@@ -1004,7 +1008,7 @@ Important rules:
 
 - Purpose: create the current user’s delivery partner profile
 - Method: `POST`
-- Route: `/api/delivery-partner/profile`
+- Route: `/api/v1/delivery-partners/profile`
 - Access: delivery partner only
 - Rate limit: `3 / 15 min`
 
@@ -1087,7 +1091,7 @@ How to test:
 
 - Purpose: fetch the logged-in delivery partner’s profile
 - Method: `GET`
-- Route: `/api/delivery-partner/profile`
+- Route: `/api/v1/delivery-partners/profile`
 - Access: delivery partner only
 
 Sample success response:
@@ -1123,7 +1127,7 @@ Common error response:
 
 - Purpose: toggle delivery partner online or offline availability
 - Method: `PATCH`
-- Route: `/api/delivery-partner/availability`
+- Route: `/api/v1/delivery-partners/availability`
 - Access: delivery partner only
 - Rate limit: `20/min`
 
@@ -1177,7 +1181,7 @@ Testing notes:
 
 - Purpose: fetch deliveries assigned to the logged-in partner excluding terminal states
 - Method: `GET`
-- Route: `/api/delivery-partner/jobs`
+- Route: `/api/v1/delivery-partners/jobs`
 - Access: delivery partner only
 - Rate limit: `120/min`
 
@@ -1221,15 +1225,15 @@ Query behavior:
 - excludes `DELIVERED` and `CANCELLED`
 - keeps the response lightweight by returning only order id, pickup location, drop location, and status-oriented delivery fields
 
-## H. Farm Module
+## H. Farms Module
 
-Base path: `/api/farm`
+Base path: `/api/v1/farms`
 
 ### H.1 Add Farm Details
 
 - Purpose: save farmer land and location details
 - Method: `POST`
-- Route: `/api/farm/`
+- Route: `/api/v1/farms/`
 - Access: authenticated user
 - Recommended token: `FARMER_TOKEN`
 
@@ -1263,15 +1267,15 @@ Sample success response:
 }
 ```
 
-## I. KYC Module
+## I. KYC Records Module
 
-Base path: `/api/kyc`
+Base path: `/api/v1/kyc-records`
 
 ### I.1 Upload KYC
 
 - Purpose: upload user KYC documents
 - Method: `POST`
-- Route: `/api/kyc/`
+- Route: `/api/v1/kyc-records/`
 - Access: authenticated user
 - Recommended token: `FARMER_TOKEN`
 - Content-Type: `multipart/form-data`
@@ -1310,13 +1314,13 @@ How to test:
 
 ## J. Leads Module
 
-Base path: `/api/leads`
+Base path: `/api/v1/leads`
 
 ### J.1 Add Lead
 
 - Purpose: create a marketing lead
 - Method: `POST`
-- Route: `/api/leads/addLead`
+- Route: `/api/v1/leads/addLead`
 - Access: public
 
 Request body:
@@ -1348,7 +1352,7 @@ Sample success response:
 
 - Purpose: delete lead by id
 - Method: `DELETE`
-- Route: `/api/leads/deleteLead/:id`
+- Route: `/api/v1/leads/deleteLead/:id`
 - Access: public in current route setup
 
 Sample success response:
@@ -1364,19 +1368,19 @@ Sample success response:
 
 - Purpose: fetch one lead
 - Method: `GET`
-- Route: `/api/leads/getLeadById/:id`
+- Route: `/api/v1/leads/getLeadById/:id`
 - Access: public
 
 ### J.4 Get Leads
 
 - Purpose: fetch all leads
 - Method: `GET`
-- Route: `/api/leads/getLeads`
+- Route: `/api/v1/leads/getLeads`
 - Access: public
 
-## K. Marketplace Module
+## K. Marketplace Listings Module
 
-Base path: `/api/marketplace`
+Base path: `/api/v1/marketplace-listings`
 
 Use `FARMER_TOKEN` for seller actions and `COMPANY_TOKEN` or `FARMER_TOKEN` for read actions.
 
@@ -1384,27 +1388,27 @@ Nearby discovery is now built into listing reads. If `lat` and `lng` are sent, t
 
 Primary REST routes:
 
-- `POST /api/marketplace/listings`
-- `GET /api/marketplace/listings`
-- `GET /api/marketplace/listings/search`
-- `GET /api/marketplace/listings/:id`
-- `PATCH /api/marketplace/listings/:id`
-- `DELETE /api/marketplace/listings/:id`
-- `GET /api/marketplace/my-listings`
+- `POST /api/v1/marketplace-listings/listings`
+- `GET /api/v1/marketplace-listings/listings`
+- `GET /api/v1/marketplace-listings/listings/search`
+- `GET /api/v1/marketplace-listings/listings/:id`
+- `PATCH /api/v1/marketplace-listings/listings/:id`
+- `DELETE /api/v1/marketplace-listings/listings/:id`
+- `GET /api/v1/marketplace-listings/my-listings`
 
 Legacy aliases still supported:
 
-- `POST /api/marketplace/addListing`
-- `GET /api/marketplace/getListings`
-- `GET /api/marketplace/getListingById/:id`
-- `PATCH /api/marketplace/updateListing/:id`
-- `DELETE /api/marketplace/deleteListing/:id`
+- `POST /api/v1/marketplace-listings/addListing`
+- `GET /api/v1/marketplace-listings/getListings`
+- `GET /api/v1/marketplace-listings/getListingById/:id`
+- `PATCH /api/v1/marketplace-listings/updateListing/:id`
+- `DELETE /api/v1/marketplace-listings/deleteListing/:id`
 
 ### K.1 Create Listing
 
 - Purpose: create a SELL listing for a farmer-owned product with listing coordinates
 - Method: `POST`
-- Route: `/api/marketplace/listings`
+- Route: `/api/v1/marketplace-listings/listings`
 - Access: verified farmer only
 
 Request body:
@@ -1481,13 +1485,11 @@ Common error responses:
   "code": "INVALID_COORDINATES",
   "message": "Number must be less than or equal to 90"
 }
-```
-
 ### K.2 Get Listings
 
 - Purpose: browse marketplace listings with automatic geo-aware ranking when coordinates are provided
 - Method: `GET`
-- Route: `/api/marketplace/listings`
+- Route: `/api/v1/marketplace-listings/listings`
 - Access: authenticated actor
 - Rate limit:
   normal mode: `120/min`
@@ -1510,13 +1512,13 @@ Geo rules:
 Normal mode example:
 
 ```http
-GET /api/marketplace/listings?search=tom&category=Vegetable&minPrice=1000&maxPrice=2000&page=1&limit=10
+GET /api/v1/marketplace-listings/listings?search=tom&category=Vegetable&minPrice=1000&maxPrice=2000&page=1&limit=10
 ```
 
 Geo mode example:
 
 ```http
-GET /api/marketplace/listings?search=tom&lat=18.5204&lng=73.8567&radius=25&page=1&limit=10
+GET /api/v1/marketplace-listings/listings?search=tom&lat=18.5204&lng=73.8567&radius=25&page=1&limit=10
 ```
 
 Sample success response in normal mode:
@@ -1634,20 +1636,20 @@ Common error responses:
 
 - Purpose: optional search endpoint that uses the same listing logic as `GET /listings`
 - Method: `GET`
-- Route: `/api/marketplace/listings/search`
+- Route: `/api/v1/marketplace-listings/listings/search`
 - Access: authenticated actor
 
 Example request:
 
 ```http
-GET /api/marketplace/listings/search?search=tomato&lat=18.5204&lng=73.8567&radius=15
+GET /api/v1/marketplace-listings/listings/search?search=tomato&lat=18.5204&lng=73.8567&radius=15
 ```
 
 ### K.4 Get Listing By Id
 
 - Purpose: fetch one listing before order placement, with optional distance from requester
 - Method: `GET`
-- Route: `/api/marketplace/listings/:id`
+- Route: `/api/v1/marketplace-listings/listings/:id`
 - Access: authenticated actor
 
 Optional query params:
@@ -1659,7 +1661,7 @@ lat, lng, radius
 Example request:
 
 ```http
-GET /api/marketplace/listings/listing-id?lat=18.5204&lng=73.8567
+GET /api/v1/marketplace-listings/listings/listing-id?lat=18.5204&lng=73.8567
 ```
 
 Sample success response:
@@ -1704,7 +1706,7 @@ Sample success response:
 
 - Purpose: fetch listings owned by current farmer
 - Method: `GET`
-- Route: `/api/marketplace/my-listings`
+- Route: `/api/v1/marketplace-listings/my-listings`
 - Access: farmer only
 
 Supported query params:
@@ -1739,7 +1741,7 @@ Sample success response:
 
 - Purpose: update listing owned by the current farmer
 - Method: `PATCH`
-- Route: `/api/marketplace/listings/:id`
+- Route: `/api/v1/marketplace-listings/listings/:id`
 - Access: farmer owner only
 
 Request body:
@@ -1780,7 +1782,7 @@ Sample success response:
 
 - Purpose: cancel a farmer-owned listing
 - Method: `DELETE`
-- Route: `/api/marketplace/listings/:id`
+- Route: `/api/v1/marketplace-listings/listings/:id`
 - Access: farmer owner only
 
 Sample success response:
@@ -1792,15 +1794,15 @@ Sample success response:
 }
 ```
 
-## L. Order Module
+## L. Orders Module
 
-Base path: `/api/orders`
+Base path: `/api/v1/orders`
 
 ### L.1 Accept Order
 
 - Purpose: farmer accepts an order created by a company
 - Method: `PATCH`
-- Route: `/api/orders/farmer/:id/accept`
+- Route: `/api/v1/orders/farmer/:id/accept`
 - Access: verified farmer only
 - Rate limit: `30/min`
 
@@ -1829,7 +1831,7 @@ Sample success response:
 
 - Purpose: company cancels its order
 - Method: `PATCH`
-- Route: `/api/orders/company/:id/cancel`
+- Route: `/api/v1/orders/company/:id/cancel`
 - Access: company only
 - Rate limit: `20/min`
 
@@ -1856,7 +1858,7 @@ Sample success response:
 
 - Purpose: company creates order from a farmer listing
 - Method: `POST`
-- Route: `/api/orders/company/createOrder`
+- Route: `/api/v1/orders/company/createOrder`
 - Access: verified company only
 - Rate limit: `20/min`
 
@@ -1912,14 +1914,14 @@ Testing notes:
 
 - Purpose: fetch one company-owned order
 - Method: `GET`
-- Route: `/api/orders/company/getCompanyOrderById/:id`
+- Route: `/api/v1/orders/company/getCompanyOrderById/:id`
 - Access: company only
 
 ### L.5 Get Company Orders
 
 - Purpose: list orders for the logged-in company
 - Method: `GET`
-- Route: `/api/orders/company/getCompanyorders`
+- Route: `/api/v1/orders/company/getCompanyorders`
 - Access: company only
 
 Query params:
@@ -1936,7 +1938,7 @@ Note:
 
 - Purpose: farmer rejects a company order
 - Method: `PATCH`
-- Route: `/api/orders/farmer/:id/reject`
+- Route: `/api/v1/orders/farmer/:id/reject`
 - Access: verified farmer only
 - Rate limit: `30/min`
 
@@ -1961,13 +1963,13 @@ Sample success response:
 
 ## M. Payment Module
 
-Base path: `/api/payments`
+Base path: `/api/v1/payments`
 
 ### M.1 Create Payment Order
 
 - Purpose: create or reuse a Razorpay order for company payment
 - Method: `POST`
-- Route: `/api/payments/create-order`
+- Route: `/api/v1/payments/create-order`
 - Access: company only
 - Token: `COMPANY_TOKEN`
 - Rate limit: `10/min`
@@ -2020,7 +2022,7 @@ What to verify:
 
 - Purpose: fetch payment information
 - Method: `GET`
-- Route: `/api/payments/:orderId`
+- Route: `/api/v1/payments/:orderId`
 - Access:
   - `COMPANY_TOKEN` for owner company
   - `FARMER_TOKEN` for farmer owner
@@ -2030,7 +2032,7 @@ What to verify:
 
 - Purpose: admin releases held payment after delivery success
 - Method: `POST`
-- Route: `/api/payments/release/:orderId`
+- Route: `/api/v1/payments/release/:orderId`
 - Access: admin only
 - Token: `ADMIN_TOKEN`
 
@@ -2083,7 +2085,7 @@ Common error responses:
 
 - Purpose: verify Razorpay payment and move payment into ESCROWED state
 - Method: `POST`
-- Route: `/api/payments/verify`
+- Route: `/api/v1/payments/verify`
 - Access: company only
 - Token: `COMPANY_TOKEN`
 - Rate limit: `15/min`
@@ -2128,7 +2130,7 @@ Common error responses:
 
 ### M.5 Dispute APIs
 
-Base path: `/api/disputes`
+Base path: `/api/v1/disputes`
 
 Dispute rules:
 
@@ -2142,7 +2144,7 @@ Dispute rules:
 
 - Purpose: raise an order dispute and freeze escrow
 - Method: `POST`
-- Route: `/api/disputes`
+- Route: `/api/v1/disputes`
 - Access: `FARMER_TOKEN` or `COMPANY_TOKEN`
 - Rate limit: `5 / 15 min`
 
@@ -2187,7 +2189,7 @@ Sample success response:
 
 - Purpose: fetch dispute details
 - Method: `GET`
-- Route: `/api/disputes/:id`
+- Route: `/api/v1/disputes/:id`
 - Access:
   - `FARMER_TOKEN` for seller on the order
   - `COMPANY_TOKEN` for buyer company on the order
@@ -2222,7 +2224,7 @@ Sample success response:
 
 - Purpose: admin resolves the dispute and either releases or refunds funds
 - Method: `PATCH`
-- Route: `/api/disputes/:id/resolve`
+- Route: `/api/v1/disputes/:id/resolve`
 - Access: `ADMIN_TOKEN`
 - Rate limit: `20/min`
 
@@ -2263,7 +2265,7 @@ Sample success response:
 
 - Purpose: retry-safe webhook processing for payment captured/failed events
 - Method: `POST`
-- Route: `/api/webhooks/razorpay`
+- Route: `/api/v1/webhooks/razorpay`
 - Access: Razorpay only
 
 Headers:
@@ -2282,15 +2284,15 @@ order.paid
 payment.failed
 ```
 
-## N. Product Module
+## N. Products Module
 
-Base path: `/api/product`
+Base path: `/api/v1/products`
 
 ### N.1 Add Product
 
 - Purpose: create farmer-owned product
 - Method: `POST`
-- Route: `/api/product/add-product`
+- Route: `/api/v1/products/add-product`
 - Access: verified user
 - Token: `FARMER_TOKEN`
 - Content-Type: `multipart/form-data`
@@ -2324,7 +2326,7 @@ Sample success response:
 
 - Purpose: delete product owned by the current user
 - Method: `DELETE`
-- Route: `/api/product/delete-product/:id`
+- Route: `/api/v1/products/delete-product/:id`
 - Access: authenticated user
 - Token: `FARMER_TOKEN`
 
@@ -2332,7 +2334,7 @@ Sample success response:
 
 - Purpose: list products owned by current user
 - Method: `GET`
-- Route: `/api/product/get-product`
+- Route: `/api/v1/products/get-product`
 - Access: verified user
 - Token: `FARMER_TOKEN`
 
@@ -2340,7 +2342,7 @@ Sample success response:
 
 - Purpose: update product details
 - Method: `PATCH`
-- Route: `/api/product/udpate-product/:id`
+- Route: `/api/v1/products/udpate-product/:id`
 - Access: authenticated user
 - Token: `FARMER_TOKEN`
 - Content-Type: `multipart/form-data`
@@ -2358,9 +2360,9 @@ Note:
 
 - current code path is `udpate-product` with typo
 
-## O. User Module
+## O. Users Module
 
-Base path: `/api/user`
+Base path: `/api/v1/users`
 
 Use `FARMER_TOKEN`.
 
@@ -2368,7 +2370,7 @@ Use `FARMER_TOKEN`.
 
 - Purpose: check authenticated verified user dashboard access
 - Method: `GET`
-- Route: `/api/user/dashboard`
+- Route: `/api/v1/users/dashboard`
 - Access: verified authenticated user
 
 Sample success response:
@@ -2384,11 +2386,11 @@ Sample success response:
 }
 ```
 
-### O.2 Upload KYC via User Module
+### O.2 Upload KYC via Users Module
 
 - Purpose: alternate KYC upload endpoint
 - Method: `POST`
-- Route: `/api/user/upload-kyc`
+- Route: `/api/v1/users/upload-kyc`
 - Access: authenticated user
 - Content-Type: `multipart/form-data`
 
@@ -2522,3 +2524,4 @@ RAZORPAY_WEBHOOK_SECRET
 RAZORPAY_API_BASE_URL=https://api.razorpay.com
 RAZORPAY_RELEASE_MODE=MANUAL
 ```
+

@@ -1,59 +1,79 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response} from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-
-import adminAuthRoutes from "./modules/admin-auth/admin-auth.routes";
-import authRoutes from "./modules/auth/auth.routes";
-import adminRoutes from "./modules/admin/admin.routes";
-import bankRoutes from "./modules/bank/bank.routes";
-import companyAuthRoutes from "./modules/company-auth/company-auth.routes";
-import farmRoutes from "./modules/farm/farm.routes";
-import kycRoutes from "./modules/kyc/kyc.routes";
-import leadsRoutes from "./modules/leads/leads.routes";
-import productRoutes from "./modules/product/product.routes";
-import userRoutes from "./modules/user/user.routes";
-import marketplaceRoutes from "./modules/marketplace/marketplace.routes";
-import companyProfileRoutes from "./modules/company-profile/company-profile.routes";
-import deliveryRoutes from "./modules/delivery/delivery.routes";
-import deliveryPartnerRoutes from "./modules/delivery-partner/deliveryPartner.routes";
-import disputeRoutes from "./modules/dispute/dispute.routes";
-import orderRoutes from "./modules/order/order.routes";
-import paymentRoutes, {
-  paymentWebhookRoutes,
-} from "./modules/payment/payment.routes";
-import broadcastRoutes from "./modules/broadcast/broadcast.routes";
+import v1Routes from './routes/v1';
+import paymentWebhookRoutes from "./modules/payments/v1/payment.routes";
+import { createRateLimiter } from "./middleware/rateLimit.middleware";
 import { errorHandler } from "./middleware/error.middleware";
 
+const API_PREFIX = "/api/v1";
 const app = express();
+const parseAllowedOrigins = () =>
+  [
+    process.env.APP_BASE_URL,
+    process.env.USER_APP_URL,
+    process.env.COMPANY_APP_URL,
+    process.env.DELIVERY_APP_URL,
+    process.env.ADMIN_APP_URL,
+    ...(process.env.CORS_ALLOWED_ORIGINS?.split(",") ?? []),
+  ]
+    .map((origin) => origin?.trim())
+    .filter((origin): origin is string => Boolean(origin));
 
-app.use(helmet());
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = new Set(parseAllowedOrigins());
+const globalApiLimiter = createRateLimiter({
+  keyPrefix: "global-api",
+  windowMs: 60 * 1000,
+  maxRequests: 300,
+});
+const webhookLimiter = createRateLimiter({
+  keyPrefix: "webhook-api",
+  windowMs: 60 * 1000,
+  maxRequests: 120,
+});
+
+app.disable("x-powered-by");
+if (process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", true);
+}
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (
+        process.env.NODE_ENV !== "production" ||
+        allowedOrigins.has(origin)
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
+    credentials: true,
+  }),
+);
 app.use(morgan("dev"));
 // Razorpay signs the raw webhook body, so this route must be mounted before JSON parsing.
-app.use("/api/webhooks", express.raw({ type: "application/json" }), paymentWebhookRoutes);
-app.use(express.json());
+app.use(
+  "/webhooks",
+  webhookLimiter,
+  express.raw({ type: "application/json", limit: "256kb" }),
+  paymentWebhookRoutes,
+);
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
-/* ---------------- ROUTES ---------------- */
-
-app.use("/api/admin-auth", adminAuthRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/bank", bankRoutes);
-app.use("/api/companyAuth", companyAuthRoutes);
-app.use("/api/farm", farmRoutes);
-app.use("/api/kyc", kycRoutes);
-app.use("/api/leads", leadsRoutes);
-app.use("/api/marketplace", marketplaceRoutes);
-app.use("/api/product", productRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/companyProfile", companyProfileRoutes);
-app.use("/api/delivery", deliveryRoutes);
-app.use("/api/delivery-partner", deliveryPartnerRoutes);
-app.use("/api/disputes", disputeRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/broadcasts", broadcastRoutes);
+app.use(API_PREFIX, globalApiLimiter,v1Routes);
 
 /* ---------------- 404 HANDLER ---------------- */
 
