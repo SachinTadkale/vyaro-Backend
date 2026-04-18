@@ -1,5 +1,12 @@
 import axios from "axios";
-import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentStatus,
+  Prisma,
+  TransactionDirection,
+  TransactionStatus,
+  TransactionType,
+} from "@prisma/client";
 import ApiError from "../../utils/apiError";
 import {
   createOrReuseInitiatedPayment,
@@ -35,6 +42,33 @@ import {
   ReleasePaymentInput,
   VerifyPaymentInput,
 } from "./payment.validation";
+import prisma from "../../config/prisma";
+
+const createTransactionIfNotExists = async (data: {
+  paymentId: string;
+  orderId?: string;
+  userId?: string;
+  companyId?: string;
+  actorType: string;
+  amount: number;
+  amountInPaise: number;
+  type: TransactionType;
+  direction: TransactionDirection;
+  status: TransactionStatus;
+  isEscrow?: boolean;
+}) => {
+  const existing = await prisma.transaction.findFirst({
+    where: {
+      paymentId: data.paymentId,
+      type: data.type,
+      actorType: data.actorType,
+    },
+  });
+
+  if (existing) return;
+
+  await prisma.transaction.create({ data });
+};
 
 const getPaymentConfig = () => {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -143,9 +177,7 @@ const assertOrderPayable = (
     PaymentStatus.RELEASED,
   ];
 
-  if (
-    blockedOrderStatuses.includes(orderStatus)
-  ) {
+  if (blockedOrderStatuses.includes(orderStatus)) {
     throw new ApiError(409, "This order is no longer payable", {
       code: "ORDER_NOT_PAYABLE",
     });
@@ -253,7 +285,10 @@ export const verifyPayment = async (
     throw new ApiError(401, "Unauthorized", { code: "UNAUTHORIZED" });
   }
 
-  const payment = await findPaymentByOrderIdForCompany(input.orderId, companyId);
+  const payment = await findPaymentByOrderIdForCompany(
+    input.orderId,
+    companyId,
+  );
 
   if (!payment) {
     throw new ApiError(404, "Payment not found for order", {
@@ -318,6 +353,24 @@ export const verifyPayment = async (
       code: "PAYMENT_NOT_FOUND",
     });
   }
+
+  // AFTER heldPayment check
+
+  await createTransactionIfNotExists({
+    paymentId: heldPayment.paymentId,
+    orderId: heldPayment.orderId,
+    companyId: heldPayment.companyId,
+    actorType: "COMPANY",
+
+    amount: heldPayment.amount,
+    amountInPaise: heldPayment.amountInPaise,
+
+    type: TransactionType.ORDER_PAYMENT,
+    direction: TransactionDirection.DEBIT,
+    status: TransactionStatus.SUCCESS,
+
+    isEscrow: true,
+  });
 
   return {
     paymentId: heldPayment.paymentId,
@@ -403,18 +456,26 @@ export const releasePayment = async (
       payment.order.orderStatus,
     )
   ) {
-    throw new ApiError(409, "Payment can be released only after delivery succeeds", {
-      code: "ORDER_NOT_DELIVERED",
-    });
+    throw new ApiError(
+      409,
+      "Payment can be released only after delivery succeeds",
+      {
+        code: "ORDER_NOT_DELIVERED",
+      },
+    );
   }
 
   const config = getPaymentConfig();
   let releaseReference = input.releaseReference ?? `manual_${Date.now()}`;
 
   if (config.releaseMode === "ROUTE") {
-    throw new ApiError(501, "ROUTE release mode is not configured in this schema yet", {
-      code: "ROUTE_RELEASE_NOT_SUPPORTED",
-    });
+    throw new ApiError(
+      501,
+      "ROUTE release mode is not configured in this schema yet",
+      {
+        code: "ROUTE_RELEASE_NOT_SUPPORTED",
+      },
+    );
   }
 
   const releasedPayment = await releasePaymentToFarmer({
@@ -428,6 +489,70 @@ export const releasePayment = async (
       code: "PAYMENT_NOT_FOUND",
     });
   }
+
+  // ✅ FIRST: error check (MOVED UP)
+  if ("error" in releasedPayment) {
+    throw new ApiError(409, "Farmer bank details are required before release", {
+      code: "BANK_DETAILS_NOT_FOUND",
+    });
+  }
+
+  // ✅ Calculate splits (dynamic)
+  const deliveryPartnerId = payment.order.delivery?.partnerId;
+  const deliveryFee = payment.order.deliveryFee ?? 0;
+  const platformFee = payment.order.platformFee ?? 0;
+  const farmerAmount = payment.amount - deliveryFee - platformFee;
+
+  // ✅ ATOMIC DB TRANSACTION
+  await prisma.$transaction(async (tx) => {
+    // Farmer
+    await createTransactionIfNotExists({
+      paymentId: payment.paymentId,
+      orderId: payment.orderId,
+      userId: payment.user.user_id,
+      actorType: "USER",
+
+      amount: farmerAmount,
+      amountInPaise: Math.round(farmerAmount * 100),
+
+      type: TransactionType.ESCROW_RELEASE,
+      direction: TransactionDirection.CREDIT,
+      status: TransactionStatus.SUCCESS,
+    });
+
+    // Delivery (if exists)
+    if (deliveryPartnerId && deliveryFee > 0) {
+      await createTransactionIfNotExists({
+        paymentId: payment.paymentId,
+        orderId: payment.orderId,
+        userId: deliveryPartnerId,
+        actorType: "USER",
+
+        amount: deliveryFee,
+        amountInPaise: Math.round(deliveryFee * 100),
+
+        type: TransactionType.DELIVERY_PAYOUT,
+        direction: TransactionDirection.CREDIT,
+        status: TransactionStatus.SUCCESS,
+      });
+    }
+
+    // Platform
+    if (platformFee > 0) {
+      await createTransactionIfNotExists({
+        paymentId: payment.paymentId,
+        orderId: payment.orderId,
+        actorType: "PLATFORM",
+
+        amount: platformFee,
+        amountInPaise: Math.round(platformFee * 100),
+
+        type: TransactionType.PLATFORM_COMMISSION,
+        direction: TransactionDirection.CREDIT,
+        status: TransactionStatus.SUCCESS,
+      });
+    }
+  });
 
   if ("error" in releasedPayment) {
     throw new ApiError(409, "Farmer bank details are required before release", {
@@ -545,7 +670,9 @@ export const handleWebhook = async (
     return {
       processed: true,
       reason: "marked_held",
-      notificationEvent: heldPayment?.order.company.email ? "PAYMENT_SUCCESS" : undefined,
+      notificationEvent: heldPayment?.order.company.email
+        ? "PAYMENT_SUCCESS"
+        : undefined,
       notificationPayload: heldPayment?.order.company.email
         ? {
             company: {
@@ -575,7 +702,9 @@ export const handleWebhook = async (
     return {
       processed: true,
       reason: "marked_failed",
-      notificationEvent: payment.order.company.email ? "PAYMENT_FAILED" : undefined,
+      notificationEvent: payment.order.company.email
+        ? "PAYMENT_FAILED"
+        : undefined,
       notificationPayload: payment.order.company.email
         ? {
             company: {
@@ -590,7 +719,8 @@ export const handleWebhook = async (
               currency: payment.currency,
               status: "FAILED",
               failureReason:
-                payload.payload?.payment?.entity?.error_description ?? "Payment failed",
+                payload.payload?.payment?.entity?.error_description ??
+                "Payment failed",
             },
           }
         : undefined,

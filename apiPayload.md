@@ -572,7 +572,7 @@ Request body:
 ```json
 {
   "registrationNo": "COMP-2026-001",
-  "password": "Company@123"
+  "password": "System@123"
 }
 ```
 
@@ -610,7 +610,7 @@ Request body:
   "hqLocation": "Pune, Maharashtra",
   "gstNumber": "27AABCU9603R1ZX",
   "email": "contact@agrogrow.com",
-  "password": "Company@123"
+  "password": "System@123"
 }
 ```
 
@@ -1380,7 +1380,7 @@ Sample success response:
 
 ## K. Marketplace Listings Module
 
-Base path: `/api/v1/marketplace-listings`
+Base path: `/api/v1/marketplace`
 
 Use `FARMER_TOKEN` for seller actions and `COMPANY_TOKEN` or `FARMER_TOKEN` for read actions.
 
@@ -1388,27 +1388,27 @@ Nearby discovery is now built into listing reads. If `lat` and `lng` are sent, t
 
 Primary REST routes:
 
-- `POST /api/v1/marketplace-listings/listings`
-- `GET /api/v1/marketplace-listings/listings`
-- `GET /api/v1/marketplace-listings/listings/search`
-- `GET /api/v1/marketplace-listings/listings/:id`
-- `PATCH /api/v1/marketplace-listings/listings/:id`
-- `DELETE /api/v1/marketplace-listings/listings/:id`
-- `GET /api/v1/marketplace-listings/my-listings`
+- `POST /api/v1/marketplace/listings`
+- `GET /api/v1/marketplace/listings`
+- `GET /api/v1/marketplace/listings/search`
+- `GET /api/v1/marketplace/listings/:id`
+- `PATCH /api/v1/marketplace/listings/:id`
+- `DELETE /api/v1/marketplace/listings/:id`
+- `GET /api/v1/marketplace/my-listings`
 
 Legacy aliases still supported:
 
-- `POST /api/v1/marketplace-listings/addListing`
-- `GET /api/v1/marketplace-listings/getListings`
-- `GET /api/v1/marketplace-listings/getListingById/:id`
-- `PATCH /api/v1/marketplace-listings/updateListing/:id`
-- `DELETE /api/v1/marketplace-listings/deleteListing/:id`
+- `POST /api/v1/marketplace/addListing`
+- `GET /api/v1/marketplace/getListings`
+- `GET /api/v1/marketplace/getListingById/:id`
+- `PATCH /api/v1/marketplace/updateListing/:id`
+- `DELETE /api/v1/marketplace/deleteListing/:id`
 
 ### K.1 Create Listing
 
 - Purpose: create a SELL listing for a farmer-owned product with listing coordinates
 - Method: `POST`
-- Route: `/api/v1/marketplace-listings/listings`
+- Route: `/api/v1/marketplace/listings`
 - Access: verified farmer only
 
 Request body:
@@ -1489,7 +1489,7 @@ Common error responses:
 
 - Purpose: browse marketplace listings with automatic geo-aware ranking when coordinates are provided
 - Method: `GET`
-- Route: `/api/v1/marketplace-listings/listings`
+- Route: `/api/v1/marketplace/listings`
 - Access: authenticated actor
 - Rate limit:
   normal mode: `120/min`
@@ -1512,13 +1512,13 @@ Geo rules:
 Normal mode example:
 
 ```http
-GET /api/v1/marketplace-listings/listings?search=tom&category=Vegetable&minPrice=1000&maxPrice=2000&page=1&limit=10
+GET /api/v1/marketplace/listings?search=tom&category=Vegetable&minPrice=1000&maxPrice=2000&page=1&limit=10
 ```
 
 Geo mode example:
 
 ```http
-GET /api/v1/marketplace-listings/listings?search=tom&lat=18.5204&lng=73.8567&radius=25&page=1&limit=10
+GET /api/v1/marketplace/listings?search=tom&lat=18.5204&lng=73.8567&radius=25&page=1&limit=10
 ```
 
 Sample success response in normal mode:
@@ -1636,20 +1636,20 @@ Common error responses:
 
 - Purpose: optional search endpoint that uses the same listing logic as `GET /listings`
 - Method: `GET`
-- Route: `/api/v1/marketplace-listings/listings/search`
+- Route: `/api/v1/marketplace/listings/search`
 - Access: authenticated actor
 
 Example request:
 
 ```http
-GET /api/v1/marketplace-listings/listings/search?search=tomato&lat=18.5204&lng=73.8567&radius=15
+GET /api/v1/marketplace/listings/search?search=tomato&lat=18.5204&lng=73.8567&radius=15
 ```
 
 ### K.4 Get Listing By Id
 
 - Purpose: fetch one listing before order placement, with optional distance from requester
 - Method: `GET`
-- Route: `/api/v1/marketplace-listings/listings/:id`
+- Route: `/api/v1/marketplace/listings/:id`
 - Access: authenticated actor
 
 Optional query params:
@@ -1661,7 +1661,7 @@ lat, lng, radius
 Example request:
 
 ```http
-GET /api/v1/marketplace-listings/listings/listing-id?lat=18.5204&lng=73.8567
+GET /api/v1/marketplace/listings/listing-id?lat=18.5204&lng=73.8567
 ```
 
 Sample success response:
@@ -1706,7 +1706,7 @@ Sample success response:
 
 - Purpose: fetch listings owned by current farmer
 - Method: `GET`
-- Route: `/api/v1/marketplace-listings/my-listings`
+- Route: `/api/v1/marketplace/my-listings`
 - Access: farmer only
 
 Supported query params:
@@ -1741,7 +1741,7 @@ Sample success response:
 
 - Purpose: update listing owned by the current farmer
 - Method: `PATCH`
-- Route: `/api/v1/marketplace-listings/listings/:id`
+- Route: `/api/v1/marketplace/listings/:id`
 - Access: farmer owner only
 
 Request body:
@@ -1782,7 +1782,7 @@ Sample success response:
 
 - Purpose: cancel a farmer-owned listing
 - Method: `DELETE`
-- Route: `/api/v1/marketplace-listings/listings/:id`
+- Route: `/api/v1/marketplace/listings/:id`
 - Access: farmer owner only
 
 Sample success response:

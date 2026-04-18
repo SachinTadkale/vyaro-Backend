@@ -170,8 +170,21 @@ export type PaymentDetailsRecord = Prisma.PaymentGetPayload<{
     transactions: {
       select: {
         transactionId: true;
-        bankDetailsId: true;
         paymentId: true;
+        orderId: true;
+        userId: true;
+        companyId: true;
+        actorType: true;
+
+        amount: true;
+        amountInPaise: true;
+
+        type: true;
+        direction: true;
+        status: true;
+
+        isEscrow: true;
+        createdAt: true;
       };
     };
   };

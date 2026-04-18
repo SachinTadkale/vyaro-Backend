@@ -47,39 +47,63 @@ export const paymentDetailsSelect = {
   orderId: true,
   companyId: true,
   userId: true,
+
   amount: true,
   amountInPaise: true,
   currency: true,
+
   status: true,
   method: true,
   receipt: true,
   idempotencyKey: true,
   failureReason: true,
+
   releaseMode: true,
   releaseReference: true,
+
   razorpayOrderId: true,
   razorpayPaymentId: true,
   razorpaySignature: true,
+
   initiatedAt: true,
   paidAt: true,
   heldAt: true,
   releasedAt: true,
   failedAt: true,
+
   createdAt: true,
   updatedAt: true,
+
+  // 🔹 ORDER DETAILS (with delivery + fees)
   order: {
     select: {
       orderId: true,
       sellerId: true,
       companyId: true,
+
       finalPrice: true,
       quantity: true,
       unitPrice: true,
+
       productName: true,
       productCategory: true,
       productUnit: true,
+
       orderStatus: true,
       paymentStatus: true,
+
+      // ✅ NEW (required for transaction logic)
+      deliveryFee: true,
+      platformFee: true,
+
+      // ✅ DELIVERY (required for delivery payout)
+      delivery: {
+        select: {
+          partnerId: true,
+          status: true,
+        },
+      },
+
       company: {
         select: {
           companyId: true,
@@ -89,12 +113,15 @@ export const paymentDetailsSelect = {
       },
     },
   },
+
+  // 🔹 USER (FARMER)
   user: {
     select: {
       user_id: true,
       name: true,
       phone_no: true,
       email: true,
+
       bankDetails: {
         select: {
           id: true,
@@ -106,16 +133,35 @@ export const paymentDetailsSelect = {
       },
     },
   },
+
+  // 🔹 TRANSACTIONS (LEDGER - FINAL STRUCTURE)
   transactions: {
     select: {
       transactionId: true,
-      bankDetailsId: true,
       paymentId: true,
+      orderId: true,
+
+      userId: true,
+      companyId: true,
+      actorType: true,
+
+      amount: true,
+      amountInPaise: true,
+
+      type: true,
+      direction: true,
+      status: true,
+
+      isEscrow: true,
+      createdAt: true,
     },
   },
 } satisfies Prisma.PaymentSelect;
 
-export const findOrderForPaymentByCompany = (orderId: string, companyId: string) =>
+export const findOrderForPaymentByCompany = (
+  orderId: string,
+  companyId: string,
+) =>
   prisma.order.findFirst({
     where: { orderId, companyId },
     select: paymentContextSelect,
@@ -127,7 +173,10 @@ export const findPaymentByOrderId = (orderId: string) =>
     select: paymentDetailsSelect,
   });
 
-export const findPaymentByOrderIdForCompany = (orderId: string, companyId: string) =>
+export const findPaymentByOrderIdForCompany = (
+  orderId: string,
+  companyId: string,
+) =>
   prisma.payment.findFirst({
     where: { orderId, companyId },
     select: paymentDetailsSelect,
@@ -362,9 +411,7 @@ export const releasePaymentToFarmer = async ({
       return { error: "BANK_DETAILS_NOT_FOUND" } as const;
     }
 
-    if (
-      payment.status === PaymentStatus.RELEASED
-    ) {
+    if (payment.status === PaymentStatus.RELEASED) {
       return tx.payment.findUnique({
         where: { orderId },
         select: paymentDetailsSelect,
@@ -386,13 +433,6 @@ export const releasePaymentToFarmer = async ({
       data: {
         orderStatus: OrderStatus.COMPLETED,
         paymentStatus: PaymentStatus.RELEASED,
-      },
-    });
-
-    await tx.transaction.create({
-      data: {
-        bankDetailsId: bankDetails.id,
-        paymentId: payment.paymentId,
       },
     });
 
