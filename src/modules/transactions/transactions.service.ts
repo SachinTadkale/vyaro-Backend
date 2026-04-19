@@ -9,10 +9,24 @@ export const getTransactions = async (
   },
   query: any,
 ) => {
-  const { page = 1, limit = 10, type, direction, fromDate, toDate } = query;
+  const {
+    page = 1,
+    limit = 10,
+    type,
+    direction,
+    status,
+    fromDate,
+    toDate,
+    search,
+    sort = "desc",
+  } = query;
+
   const skip = (Number(page) - 1) * Number(limit);
+  const take = Number(limit);
+
   let where: any = {};
 
+  // 🔹 Role filter
   if (actor.actorType === "USER") {
     where.userId = actor.userId;
   }
@@ -21,8 +35,10 @@ export const getTransactions = async (
     where.companyId = actor.companyId;
   }
 
+  // 🔹 Filters
   if (type) where.type = type;
   if (direction) where.direction = direction;
+  if (status) where.status = status;
 
   if (fromDate || toDate) {
     where.createdAt = {
@@ -31,31 +47,66 @@ export const getTransactions = async (
     };
   }
 
+  // 🔥 SEARCH (FULL)
+  if (search) {
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          {
+            transactionId: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+          {
+            orderId: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+          {
+            order: {
+              productName: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          },
+          ...(isNaN(Number(search))
+            ? []
+            : [
+                {
+                  amount: Number(search),
+                },
+              ]),
+        ],
+      },
+    ];
+  }
+
   const [transactions, total] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: {
+        createdAt: sort === "asc" ? "asc" : "desc",
+      },
       skip,
-      take: Number(limit),
+      take,
       select: {
         transactionId: true,
         paymentId: true,
         orderId: true,
-
         userId: true,
         companyId: true,
         actorType: true,
-
         amount: true,
         amountInPaise: true,
-
         type: true,
         direction: true,
         status: true,
-
         isEscrow: true,
         createdAt: true,
-
         order: {
           select: {
             productName: true,
@@ -72,7 +123,7 @@ export const getTransactions = async (
       total,
       page: Number(page),
       limit: Number(limit),
-      totalPages: Math.ceil(total / Number(limit)),
+      totalPages: Math.ceil(total / take),
     },
   };
 };
