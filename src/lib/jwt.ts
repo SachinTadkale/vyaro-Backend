@@ -13,7 +13,7 @@ export type JwtPayload = {
   userId: string;
   role?: UserRole;
   companyId?: string;
-  actorType?: "USER" | "COMPANY";
+  actorType?: "USER" | "COMPANY" | "DELIVERY_PARTNER";
 };
 
 export const generateToken = (payload: JwtPayload) => {

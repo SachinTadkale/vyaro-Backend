@@ -22,9 +22,7 @@ import type {
   ResetPasswordResult as UserResetPasswordResult,
 } from "./user-auth.types";
 
-import type {
-  RegisterCompanyInput,
-} from "./company-auth.types";
+import type { RegisterCompanyInput } from "./company-auth.types";
 
 import type {
   AdminForgotPasswordInput,
@@ -49,15 +47,17 @@ const ensureUserCanLogin = (user: User) => {
   if (user.isBlocked) {
     throw new ApiError(403, "Your account is blocked by admin.");
   }
-  if (user.verificationStatus === VerificationStatus.PENDING) {
-    throw new ApiError(403, "Your documents are under review.");
-  }
+  // if (user.verificationStatus === VerificationStatus.PENDING) {
+  //   throw new ApiError(403, "Your documents are under review.");
+  // }
   if (user.verificationStatus === VerificationStatus.REJECTED) {
     throw new ApiError(403, "Your documents were rejected.");
   }
 };
 
-export const registerUser = async (data: UserRegisterInput): Promise<UserRegisterResult> => {
+export const registerUser = async (
+  data: UserRegisterInput,
+): Promise<UserRegisterResult> => {
   if (!data.password) {
     throw new ApiError(400, "Password is required");
   }
@@ -80,6 +80,11 @@ export const registerUser = async (data: UserRegisterInput): Promise<UserRegiste
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
+  const role =
+    data.role === "DELIVERY_PARTNER"
+      ? UserRole.DELIVERY_PARTNER
+      : UserRole.USER;
+
   const user = await prisma.user.create({
     data: {
       name: data.name,
@@ -89,7 +94,7 @@ export const registerUser = async (data: UserRegisterInput): Promise<UserRegiste
       email: data.email,
       gender: data.gender,
       verificationStatus: VerificationStatus.PENDING,
-      role: UserRole.USER,
+      role: role,
       registrationStep: 1,
     },
   });
@@ -97,12 +102,15 @@ export const registerUser = async (data: UserRegisterInput): Promise<UserRegiste
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
-    actorType: "USER",
+    actorType: role === UserRole.DELIVERY_PARTNER ? "DELIVERY_PARTNER" : "USER",
   });
 
   return {
     message: "Registration successful. Continue onboarding.",
     token,
+    registrationStep: user.registrationStep,
+    verificationStatus: user.verificationStatus,
+    onboardingCompleted: false,
     notificationPayload: user.email
       ? {
           user: {
@@ -115,7 +123,9 @@ export const registerUser = async (data: UserRegisterInput): Promise<UserRegiste
   };
 };
 
-export const loginUser = async (data: UserLoginInput): Promise<UserLoginResult> => {
+export const loginUser = async (
+  data: UserLoginInput,
+): Promise<UserLoginResult> => {
   if (!data.password) {
     throw new ApiError(400, "Password is required");
   }
@@ -132,10 +142,25 @@ export const loginUser = async (data: UserLoginInput): Promise<UserLoginResult> 
   }
 
   if (user.role === UserRole.ADMIN) {
-    throw new ApiError(403, "Admin accounts must login through the admin login API.");
+    throw new ApiError(
+      403,
+      "Admin accounts must login through the Admin web portal.",
+    );
+  }
+
+  if (user.role === UserRole.COMPANY) {
+    throw new ApiError(403, "Use Web Portal to Login As Buyer");
   }
 
   ensureUserCanLogin(user);
+  if (user.role === UserRole.DELIVERY_PARTNER) {
+    const profile = await prisma.deliveryPartner.findUnique({
+      where: { userId: user.user_id },
+    });
+    if (!profile) {
+      throw new ApiError(403, " Please complete your delivery partner profile");
+    }
+  }
 
   const token = generateToken({
     userId: user.user_id,
@@ -143,16 +168,26 @@ export const loginUser = async (data: UserLoginInput): Promise<UserLoginResult> 
     actorType: "USER",
   });
 
-  return { token };
+  return {
+    token,
+    registrationStep: user.registrationStep,
+    verificationStatus: user.verificationStatus,
+    onboardingCompleted: user.registrationStep === 4,
+  };
 };
 
-export const requestUserOtp = async (data: UserRequestOtpInput): Promise<UserRequestOtpResult> => {
+export const requestUserOtp = async (
+  data: UserRequestOtpInput,
+): Promise<UserRequestOtpResult> => {
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   if (!user) {
     throw new ApiError(404, "User not found");
   }
   if (user.role === UserRole.ADMIN) {
     throw new ApiError(403, "Admin cannot login using OTP");
+  }
+  if (user.role === UserRole.COMPANY) {
+    throw new ApiError(403, "Company cannot login using OTP");
   }
   ensureUserCanLogin(user);
 
@@ -168,7 +203,9 @@ export const requestUserOtp = async (data: UserRequestOtpInput): Promise<UserReq
   };
 };
 
-export const loginUserWithOtp = async (data: UserLoginWithOtpInput): Promise<UserLoginWithOtpResult> => {
+export const loginUserWithOtp = async (
+  data: UserLoginWithOtpInput,
+): Promise<UserLoginWithOtpResult> => {
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   if (!user) {
     throw new ApiError(400, "Invalid request");
@@ -176,20 +213,40 @@ export const loginUserWithOtp = async (data: UserLoginWithOtpInput): Promise<Use
   if (user.role === UserRole.ADMIN) {
     throw new ApiError(403, "Admin cannot login using OTP");
   }
+  if (user.role === UserRole.COMPANY) {
+    throw new ApiError(403, "Company cannot login using OTP");
+  }
   ensureUserCanLogin(user);
 
   await otpService.verifyOtp(user.user_id, data.otp, OtpType.LOGIN);
 
+  if (user.role === UserRole.DELIVERY_PARTNER) {
+    const profile = await prisma.deliveryPartner.findUnique({
+      where: { userId: user.user_id },
+    });
+    if (!profile) {
+      throw new ApiError(403, " Please complete your delivery partner profile");
+    }
+  }
+
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
-    actorType: "USER",
+    actorType:
+      user.role === UserRole.DELIVERY_PARTNER ? "DELIVERY_PARTNER" : "USER",
   });
 
-  return { token };
+  return {
+    token,
+    registrationStep: user.registrationStep,
+    verificationStatus: user.verificationStatus,
+    onboardingCompleted: user.registrationStep === 4,
+  };
 };
 
-export const forgotUserPassword = async (data: UserForgotPasswordInput): Promise<UserForgotPasswordResult> => {
+export const forgotUserPassword = async (
+  data: UserForgotPasswordInput,
+): Promise<UserForgotPasswordResult> => {
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -199,7 +256,10 @@ export const forgotUserPassword = async (data: UserForgotPasswordInput): Promise
   }
 
   const email = requireUserEmail(user);
-  const otpCode = await otpService.generateOtp(user.user_id, OtpType.RESET_PASSWORD);
+  const otpCode = await otpService.generateOtp(
+    user.user_id,
+    OtpType.RESET_PASSWORD,
+  );
 
   return {
     message: "Password reset OTP sent to email.",
@@ -210,13 +270,17 @@ export const forgotUserPassword = async (data: UserForgotPasswordInput): Promise
   };
 };
 
-export const resetUserPassword = async (data: UserResetPasswordInput): Promise<UserResetPasswordResult> => {
+export const resetUserPassword = async (
+  data: UserResetPasswordInput,
+): Promise<UserResetPasswordResult> => {
   if (!data.newPassword) throw new ApiError(400, "New password is required");
-  if (!data.confirmPassword) throw new ApiError(400, "Confirm password is required");
+  if (!data.confirmPassword)
+    throw new ApiError(400, "Confirm password is required");
 
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   if (!user) throw new ApiError(404, "User not found");
-  if (data.newPassword !== data.confirmPassword) throw new ApiError(400, "Passwords do not match");
+  if (data.newPassword !== data.confirmPassword)
+    throw new ApiError(400, "Passwords do not match");
 
   await otpService.verifyOtp(user.user_id, data.otp, OtpType.RESET_PASSWORD);
 
@@ -239,14 +303,20 @@ const sanitizeCompany = <T extends { password: string }>(company: T) => {
 };
 
 export const registerCompany = async (data: RegisterCompanyInput) => {
-  const existing = await companyRepo.findCompanyByRegistration(data.registrationNo);
+  const existing = await companyRepo.findCompanyByRegistration(
+    data.registrationNo,
+  );
   if (existing) throw new ApiError(409, "Company already exists");
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
   return companyRepo.createCompany({ ...data, password: hashedPassword });
 };
 
-export const uploadCompanyDocs = async (companyId: string, gstUrl: string, licenseUrl: string) => {
+export const uploadCompanyDocs = async (
+  companyId: string,
+  gstUrl: string,
+  licenseUrl: string,
+) => {
   return companyRepo.updateCompanyDocs(companyId, gstUrl, licenseUrl);
 };
 
@@ -254,10 +324,14 @@ export const verifyCompany = async (companyId: string) => {
   return companyRepo.verifyCompany(companyId);
 };
 
-export const loginCompany = async (registrationNo: string, password: string) => {
+export const loginCompany = async (
+  registrationNo: string,
+  password: string,
+) => {
   const company = await companyRepo.findCompanyByRegistration(registrationNo);
   if (!company) throw new ApiError(404, "Company not found");
-  if (company.verification !== "VERIFIED") throw new ApiError(403, "Company not verified");
+  if (company.verification !== "VERIFIED")
+    throw new ApiError(403, "Company not verified");
 
   const isPasswordValid = await bcrypt.compare(password, company.password);
   if (!isPasswordValid) throw new ApiError(401, "Invalid credentials");
@@ -282,11 +356,14 @@ export const logoutCompany = async () => {
 const findAdminByEmail = async (email: string) => {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new ApiError(404, "User not found");
-  if (user.role !== UserRole.ADMIN) throw new ApiError(403, "This flow is only for admins.");
+  if (user.role !== UserRole.ADMIN)
+    throw new ApiError(403, "This flow is only for admins.");
   return user;
 };
 
-export const loginAdmin = async (data: AdminLoginInput): Promise<AdminLoginResult> => {
+export const loginAdmin = async (
+  data: AdminLoginInput,
+): Promise<AdminLoginResult> => {
   if (!data.password) throw new ApiError(400, "Password is required");
   const user = await findAdminByEmail(data.email);
 
@@ -298,12 +375,17 @@ export const loginAdmin = async (data: AdminLoginInput): Promise<AdminLoginResul
   return { token };
 };
 
-export const forgotAdminPassword = async (data: AdminForgotPasswordInput): Promise<AdminMessageResult> => {
+export const forgotAdminPassword = async (
+  data: AdminForgotPasswordInput,
+): Promise<AdminMessageResult> => {
   const user = await findAdminByEmail(data.email);
   if (user.isBlocked) throw new ApiError(403, "Your admin account is blocked.");
   if (!user.email) throw new ApiError(400, "Admin email is missing.");
 
-  const otpCode = await otpService.generateOtp(user.user_id, OtpType.RESET_PASSWORD);
+  const otpCode = await otpService.generateOtp(
+    user.user_id,
+    OtpType.RESET_PASSWORD,
+  );
 
   return {
     message: "Admin password reset OTP sent to email.",
@@ -314,12 +396,16 @@ export const forgotAdminPassword = async (data: AdminForgotPasswordInput): Promi
   };
 };
 
-export const resetAdminPassword = async (data: AdminResetPasswordInput): Promise<AdminMessageResult> => {
+export const resetAdminPassword = async (
+  data: AdminResetPasswordInput,
+): Promise<AdminMessageResult> => {
   if (!data.newPassword) throw new ApiError(400, "New password is required");
-  if (!data.confirmPassword) throw new ApiError(400, "Confirm password is required");
+  if (!data.confirmPassword)
+    throw new ApiError(400, "Confirm password is required");
 
   const user = await findAdminByEmail(data.email);
-  if (data.newPassword !== data.confirmPassword) throw new ApiError(400, "Passwords do not match");
+  if (data.newPassword !== data.confirmPassword)
+    throw new ApiError(400, "Passwords do not match");
   if (user.isBlocked) throw new ApiError(403, "Your admin account is blocked.");
 
   await otpService.verifyOtp(user.user_id, data.otp, OtpType.RESET_PASSWORD);

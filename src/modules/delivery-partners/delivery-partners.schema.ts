@@ -1,6 +1,6 @@
 import { z, ZodType } from "zod";
 import ApiError from "../../utils/apiError";
-import { DELIVERY_PARTNER_ERROR_CODES } from "./delivery-partner.constants";
+import { DELIVERY_PARTNER_ERROR_CODES } from "./delivery-partners.constants";
 
 const trimmedString = z.string().trim().min(1);
 
@@ -30,3 +30,8 @@ export type CreateProfileSchemaInput = z.infer<typeof createProfileSchema>;
 export type UpdateAvailabilitySchemaInput = z.infer<
   typeof updateAvailabilitySchema
 >;
+
+export const updateLocationSchema = z.object({
+  lat: z.number(),
+  lng: z.number(),
+});

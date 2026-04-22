@@ -8,7 +8,8 @@ import {
   getDeliveryPartnerJobsController,
   getDeliveryPartnerProfileController,
   updateDeliveryPartnerAvailabilityController,
-} from "./delivery-partner.controller";
+  updateDeliveryPartnerLocationController,
+} from "./delivery-partners.controller";
 
 const router = Router();
 
@@ -47,5 +48,7 @@ router.patch(
 );
 
 router.get("/jobs", jobsLimiter, getDeliveryPartnerJobsController);
+
+router.patch("/updateLocation", updateDeliveryPartnerLocationController);
 
 export default router;

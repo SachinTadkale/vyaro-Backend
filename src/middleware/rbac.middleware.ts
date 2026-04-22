@@ -1,7 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
 
-type ActorType = "USER" | "COMPANY";
+type ActorType = "USER" | "COMPANY" | "DELIVERY_PARTNER";
 type DeliveryAccessRole = "COMPANY" | "DELIVERY_PARTNER" | "ADMIN";
 
 export const requireActor = (...allowedActors: ActorType[]) => {
@@ -35,7 +35,7 @@ export const requireDeliveryAccess = (
 ) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const accessChecks: Record<DeliveryAccessRole, boolean> = {
-      COMPANY: req.user?.actorType === "COMPANY",
+      COMPANY: req.user?.role === UserRole.COMPANY,
       DELIVERY_PARTNER: req.user?.role === UserRole.DELIVERY_PARTNER,
       ADMIN: req.user?.role === UserRole.ADMIN,
     };

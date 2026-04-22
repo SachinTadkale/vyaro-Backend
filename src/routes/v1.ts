@@ -28,7 +28,7 @@ import disputeRoutes from "../modules/disputes/v1/dispute.routes";
 
 // Logistics
 import deliveryRoutes from "../modules/deliveries/v1/delivery.routes";
-import deliveryPartnerRoutes from "../modules/delivery-partners/v1/delivery-partner.routes";
+import deliveryPartnerRoutes from "../modules/delivery-partners/v1/delivery-partners.routes";
 
 // Communication & CRM
 import broadcastRoutes from "../modules/broadcasts/v1/broadcast.routes";

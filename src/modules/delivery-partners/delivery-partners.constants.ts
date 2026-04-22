@@ -13,4 +13,5 @@ export const DELIVERY_PARTNER_ERROR_CODES = {
 export const JOB_EXCLUDED_STATUSES: DeliveryStatus[] = [
   DeliveryStatus.DELIVERED,
   DeliveryStatus.CANCELLED,
+  DeliveryStatus.FAILED,
 ];

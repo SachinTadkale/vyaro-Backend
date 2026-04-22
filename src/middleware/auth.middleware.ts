@@ -1,10 +1,11 @@
 import { NextFunction, Request, Response } from "express";
 import { JwtPayload, verifyToken } from "../lib/jwt";
+import { UserRole } from "@prisma/client";
 
 export const authMiddleware = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const authHeader = req.headers.authorization;
 
@@ -31,7 +32,13 @@ export const authMiddleware = (
       userId: decoded.userId,
       role: decoded.role,
       companyId: decoded.companyId,
-      actorType: decoded.actorType ?? (decoded.companyId ? "COMPANY" : "USER"),
+      actorType:
+        decoded.actorType ??
+        (decoded.role === UserRole.COMPANY
+          ? "COMPANY"
+          : decoded.role === UserRole.DELIVERY_PARTNER
+            ? "DELIVERY_PARTNER"
+            : "USER"),
     };
 
     next();
