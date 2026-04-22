@@ -5,12 +5,14 @@ import {
   getJobs,
   getProfile,
   updateAvailability,
-} from "../delivery-partner.service";
+  updateLocation,
+} from "../delivery-partners.service";
 import {
   createProfileSchema,
   updateAvailabilitySchema,
+  updateLocationSchema,
   validateSchema,
-} from "../delivery-partner.schema";
+} from "../delivery-partners.schema";
 
 export const createDeliveryPartnerProfileController = asyncHandler(
   async (req: Request, res: Response) => {
@@ -55,6 +57,19 @@ export const getDeliveryPartnerJobsController = asyncHandler(
 
     res.status(200).json({
       success: true,
+      data: result,
+    });
+  },
+);
+
+export const updateDeliveryPartnerLocationController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = validateSchema(updateLocationSchema, req.body);
+    const result = await updateLocation(req.user, payload);
+
+    res.status(200).json({
+      success: true,
+      message: "Location updated",
       data: result,
     });
   },

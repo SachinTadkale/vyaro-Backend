@@ -118,12 +118,19 @@ enum AuditEntityType {
 }
 
 enum DeliveryStatus {
+  PENDING_ASSIGNMENT
   ASSIGNED
+  ACCEPTED
   PICKED_UP
   IN_TRANSIT
   DELIVERED
   FAILED
   CANCELLED
+}
+
+enum AssignmentType {
+  SYSTEM
+  ADMIN
 }
 
 enum OtpType {
@@ -328,10 +335,16 @@ model Delivery {
   deliveryId String @id @default(uuid())
   orderId    String @unique
 
-  assignedBy String
   partnerId  String
+  assignedBy AssignmentType @default(SYSTEM) // SYSTEM for now
 
-  status DeliveryStatus @default(ASSIGNED)
+  status DeliveryStatus @default(PENDING_ASSIGNMENT)
+
+  pickupOtp String?
+  pickupOtpVerified Boolean @default(false)
+
+  deliveryOtp String?
+  deliveryOtpVerified Boolean @default(false)
 
   pickupTime   DateTime?
   deliveryTime DateTime?

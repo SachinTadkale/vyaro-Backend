@@ -2,13 +2,13 @@ import { Prisma, UserRole } from "@prisma/client";
 import {
   deliveryPartnerJobSelect,
   deliveryPartnerProfileSelect,
-} from "./delivery-partner.repository";
+} from "./delivery-partners.repository";
 
 export type DeliveryPartnerActor = {
   userId: string;
   role?: UserRole;
   companyId?: string;
-  actorType?: "USER" | "COMPANY";
+  actorType?: "USER" | "COMPANY" | "DELIVERY_PARTNER";
 };
 
 export type DeliveryPartnerProfileRecord = Prisma.DeliveryPartnerGetPayload<{

@@ -13,22 +13,27 @@ import {
   validateSchema,
 } from "../user-auth.validation";
 
-export const registerUser = asyncHandler(async (req: Request, res: Response) => {
-  const payload = validateSchema(registerSchema, req.body);
-  const result = await authService.registerUser(payload);
-  if (result.notificationPayload) {
-    void notificationService.sendNotification(
-      NotificationEventType.USER_REGISTERED,
-      result.notificationPayload,
-    );
-  }
+export const registerUser = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = validateSchema(registerSchema, req.body);
+    const result = await authService.registerUser(payload);
+    if (result.notificationPayload) {
+      void notificationService.sendNotification(
+        NotificationEventType.USER_REGISTERED,
+        result.notificationPayload,
+      );
+    }
 
-  return res.status(201).json({
-    success: true,
-    message: result.message,
-    token: result.token,
-  });
-});
+    return res.status(201).json({
+      success: true,
+      message: result.message,
+      token: result.token,
+      registrationStep: result.registrationStep,
+      verificationStatus: result.verificationStatus,
+      onboardingCompleted: result.onboardingCompleted,
+    });
+  },
+);
 
 export const loginUser = asyncHandler(async (req: Request, res: Response) => {
   const payload = validateSchema(loginSchema, req.body);
@@ -37,6 +42,9 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
   return res.status(200).json({
     success: true,
     token: result.token,
+    registrationStep: result.registrationStep,
+    verificationStatus: result.verificationStatus,
+    onboardingCompleted: result.onboardingCompleted,
   });
 });
 
@@ -55,7 +63,7 @@ export const requestOtpController = asyncHandler(
       success: true,
       message: result.message,
     });
-  }
+  },
 );
 
 export const loginWithOtpController = asyncHandler(
@@ -66,8 +74,11 @@ export const loginWithOtpController = asyncHandler(
     return res.status(200).json({
       success: true,
       token: result.token,
+      registrationStep: result.registrationStep,
+      verificationStatus: result.verificationStatus,
+      onboardingCompleted: result.onboardingCompleted,
     });
-  }
+  },
 );
 
 export const forgotPasswordController = asyncHandler(
@@ -85,7 +96,7 @@ export const forgotPasswordController = asyncHandler(
       success: true,
       message: result.message,
     });
-  }
+  },
 );
 
 export const resetPasswordController = asyncHandler(
@@ -97,5 +108,5 @@ export const resetPasswordController = asyncHandler(
       success: true,
       message: result.message,
     });
-  }
+  },
 );

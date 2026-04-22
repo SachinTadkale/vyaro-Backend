@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../../config/prisma";
-import { JOB_EXCLUDED_STATUSES } from "./delivery-partner.constants";
+import { JOB_EXCLUDED_STATUSES } from "./delivery-partners.constants";
 
 export const deliveryPartnerProfileSelect = {
   id: true,

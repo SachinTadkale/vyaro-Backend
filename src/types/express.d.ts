@@ -7,7 +7,7 @@ declare global {
         userId: string;
         role?: UserRole;
         companyId?: string;
-        actorType?: "USER" | "COMPANY";
+        actorType?: "USER" | "COMPANY" | "DELIVERY_PARTNER";
       };
       file?: Express.Multer.File;
     }

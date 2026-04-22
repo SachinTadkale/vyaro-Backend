@@ -1,4 +1,4 @@
-import { Gender } from "@prisma/client";
+import { Gender, VerificationStatus } from "@prisma/client";
 import type { NotificationPayload } from "../notification/notification.types";
 
 export type RegisterInput = {
@@ -8,6 +8,8 @@ export type RegisterInput = {
   password: string;
   address: string;
   gender?: Gender | null;
+
+  role?: "USER" | "DELIVERY_PARTNER";
 };
 
 export type LoginInput = {
@@ -38,11 +40,17 @@ export type ResetPasswordInput = {
 export type RegisterResult = {
   message: string;
   token: string;
+  registrationStep: number;
+  verificationStatus: VerificationStatus;
+  onboardingCompleted: boolean;
   notificationPayload?: NotificationPayload;
 };
 
 export type LoginResult = {
   token: string;
+  registrationStep: number;
+  verificationStatus: VerificationStatus;
+  onboardingCompleted: boolean;
 };
 
 export type RequestOtpResult = {
@@ -52,6 +60,9 @@ export type RequestOtpResult = {
 
 export type LoginWithOtpResult = {
   token: string;
+  registrationStep: number;
+  verificationStatus: VerificationStatus;
+  onboardingCompleted: boolean;
 };
 
 export type ForgotPasswordResult = {

@@ -3,20 +3,21 @@ import ApiError from "../../utils/apiError";
 import {
   DELIVERY_PARTNER_ERROR_CODES,
   DELIVERY_PARTNER_ROLE,
-} from "./delivery-partner.constants";
+} from "./delivery-partners.constants";
 import {
   createDeliveryPartnerProfile,
   findDeliveryPartnerJobs,
   findDeliveryPartnerProfileByUserId,
   updateDeliveryPartnerAvailabilityByUserId,
-} from "./delivery-partner.repository";
+} from "./delivery-partners.repository";
 import {
   CreateDeliveryPartnerProfileInput,
   DeliveryPartnerActor,
   DeliveryPartnerJobRecord,
   DeliveryPartnerProfileRecord,
   UpdateDeliveryPartnerAvailabilityInput,
-} from "./delivery-partner.types";
+} from "./delivery-partners.types";
+import prisma from "../../config/prisma";
 
 const assertDeliveryPartnerRole = (actor: DeliveryPartnerActor) => {
   if (actor.role !== DELIVERY_PARTNER_ROLE) {
@@ -77,7 +78,9 @@ export const createProfile = async (
 ) => {
   assertDeliveryPartnerRole(actor);
 
-  const existingProfile = await findDeliveryPartnerProfileByUserId(actor.userId);
+  const existingProfile = await findDeliveryPartnerProfileByUserId(
+    actor.userId,
+  );
 
   if (existingProfile) {
     throw new ApiError(409, "Delivery partner profile already exists", {
@@ -124,4 +127,21 @@ export const getJobs = async (actor: DeliveryPartnerActor) => {
     partnerId: profile.id,
     jobs: jobs.map(formatJob),
   };
+};
+
+export const updateLocation = async (
+  actor: DeliveryPartnerActor,
+  input: { lat: number; lng: number },
+) => {
+  assertDeliveryPartnerRole(actor);
+  await getRequiredProfile(actor.userId);
+
+  return prisma.deliveryPartner.update({
+    where: { userId: actor.userId },
+    data: {
+      currentLat: input.lat,
+      currentLng: input.lng,
+      lastSeenAt: new Date(),
+    },
+  });
 };
