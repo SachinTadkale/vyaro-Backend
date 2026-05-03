@@ -42,8 +42,12 @@ import leadsRoutes from "../modules/leads/v1/leads.routes";
 
 // Transaction routes.
 import transactionRoutes from "../modules/transactions/v1/transactions.routes";
+import { healthCheck } from "../modules/health/health.controller";
 
 const apiV1Router = Router();
+
+/* ---------------- HEALTH CHECK ---------------- */
+apiV1Router.use("/health", healthCheck);
 
 /* ---------------- AUTH ---------------- */
 apiV1Router.use("/auth/user", userAuthRoutes);
