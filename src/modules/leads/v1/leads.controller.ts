@@ -1,9 +1,17 @@
+/**
+ * Module: Leads.controller
+ * Purpose: Implements the Leads.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import ApiError from "../../../utils/apiError";
 import * as leadsService from "../leads.service";
 import { createLeadSchema } from "../leads.validation";
 
+/**
+ * Create Lead.
+ */
 export const createLead = asyncHandler(async (req: Request, res: Response) => {
   const result = createLeadSchema.safeParse(req.body);
 
@@ -22,6 +30,9 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Get Leads.
+ */
 export const getLeads = asyncHandler(async (_req: Request, res: Response) => {
   const leads = await leadsService.getLeads();
 
@@ -31,6 +42,9 @@ export const getLeads = asyncHandler(async (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * Get Lead By Id.
+ */
 export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
   const lead = await leadsService.getLeadById(req.params.id);
 
@@ -40,6 +54,9 @@ export const getLeadById = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Delete Lead.
+ */
 export const deleteLead = asyncHandler(async (req: Request, res: Response) => {
   const response = await leadsService.deleteLead(req.params.id);
 

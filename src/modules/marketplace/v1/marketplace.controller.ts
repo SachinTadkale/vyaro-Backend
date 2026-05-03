@@ -1,3 +1,8 @@
+/**
+ * Module: Marketplace.controller
+ * Purpose: Implements the Marketplace.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import * as marketplaceService from "../marketplace.service";
@@ -13,6 +18,9 @@ import {
   validateSchema,
 } from "../marketplace.validator";
 
+/**
+ * Create Listing.
+ */
 export const createListing = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(createListingSchema, req.body);
@@ -35,6 +43,9 @@ export const createListing = asyncHandler(
   },
 );
 
+/**
+ * Get Marketplace Listings.
+ */
 export const getMarketplaceListings = asyncHandler(
   async (req: Request, res: Response) => {
     const query = validateSchema(marketplaceListingsQuerySchema, req.query);
@@ -47,6 +58,9 @@ export const getMarketplaceListings = asyncHandler(
   },
 );
 
+/**
+ * Get Single Listing.
+ */
 export const getSingleListing = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(listingIdParamSchema, req.params);
@@ -63,6 +77,9 @@ export const getSingleListing = asyncHandler(
   },
 );
 
+/**
+ * Update Listing.
+ */
 export const updateListing = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(listingIdParamSchema, req.params);
@@ -81,6 +98,9 @@ export const updateListing = asyncHandler(
   },
 );
 
+/**
+ * Delete Listing.
+ */
 export const deleteListing = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(listingIdParamSchema, req.params);
@@ -93,6 +113,9 @@ export const deleteListing = asyncHandler(
   },
 );
 
+/**
+ * Get My Listings.
+ */
 export const getMyListings = asyncHandler(
   async (req: Request, res: Response) => {
     const query = validateSchema(myListingsQuerySchema, req.query);

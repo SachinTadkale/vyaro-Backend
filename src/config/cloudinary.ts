@@ -1,3 +1,8 @@
+/**
+ * Module: Cloudinary
+ * Purpose: Implements the Cloudinary module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { v2 as cloudinary } from "cloudinary";
 import ApiError from "../utils/apiError";
 
@@ -15,6 +20,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+/**
+ * Upload To Cloudinary.
+ */
 export const uploadToCloudinary = async (
   filePath: string,
   folderName: string = "farmzy/kyc"
@@ -33,6 +41,9 @@ export const uploadToCloudinary = async (
   }
 };
 
+/**
+ * Delete From Cloudinary.
+ */
 export const deleteFromCloudinary = async (publicId: string) => {
   try {
     await cloudinary.uploader.destroy(publicId);

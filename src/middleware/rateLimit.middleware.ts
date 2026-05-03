@@ -1,3 +1,8 @@
+/**
+ * Module: Rate Limit.middleware
+ * Purpose: Implements the Rate Limit.middleware module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { NextFunction, Request, Response } from "express";
 import ApiError from "../utils/apiError";
 
@@ -25,6 +30,9 @@ setInterval(() => {
   }
 }, 15 * 60 * 1000).unref();
 
+/**
+ * Create Rate Limiter.
+ */
 export const createRateLimiter = ({
   keyPrefix,
   windowMs,

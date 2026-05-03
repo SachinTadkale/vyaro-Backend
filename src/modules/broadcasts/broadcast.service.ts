@@ -1,3 +1,8 @@
+/**
+ * Module: Broadcast.service
+ * Purpose: Implements the Broadcast.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { BroadcastType, TargetAudience, UserRole } from "@prisma/client";
 import ApiError from "../../utils/apiError";
 import notificationService from "../notification/notification.service";

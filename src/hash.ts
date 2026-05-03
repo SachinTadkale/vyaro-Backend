@@ -1,3 +1,8 @@
+/**
+ * Module: Hash
+ * Purpose: Implements the Hash module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import bcrypt from "bcrypt";
 
 async function hashPassword() {

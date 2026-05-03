@@ -1,3 +1,8 @@
+/**
+ * Module: Order.repository
+ * Purpose: Implements the Order.repository module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import {
   ListingStatus,
   ListingType,
@@ -6,6 +11,9 @@ import {
 } from "@prisma/client";
 import prisma from "../../config/prisma";
 
+/**
+ * Order Details Select.
+ */
 export const orderDetailsSelect = {
   orderId: true,
   listingId: true,
@@ -49,6 +57,9 @@ export type OrderDetailsRecord = Prisma.OrderGetPayload<{
   select: typeof orderDetailsSelect;
 }>;
 
+/**
+ * Find Verified Company By Id.
+ */
 export const findVerifiedCompanyById = (companyId: string) => {
   return prisma.company.findUnique({
     where: { companyId },
@@ -59,6 +70,9 @@ export const findVerifiedCompanyById = (companyId: string) => {
   });
 };
 
+/**
+ * Find User By Id.
+ */
 export const findUserById = (userId: string) => {
   return prisma.user.findUnique({
     where: { user_id: userId },
@@ -70,6 +84,9 @@ export const findUserById = (userId: string) => {
   });
 };
 
+/**
+ * Find Company Order By Id.
+ */
 export const findCompanyOrderById = (orderId: string, companyId: string) => {
   return prisma.order.findFirst({
     where: {
@@ -80,6 +97,9 @@ export const findCompanyOrderById = (orderId: string, companyId: string) => {
   });
 };
 
+/**
+ * Find Farmer Order By Id.
+ */
 export const findFarmerOrderById = (orderId: string, sellerId: string) => {
   return prisma.order.findFirst({
     where: {
@@ -90,6 +110,9 @@ export const findFarmerOrderById = (orderId: string, sellerId: string) => {
   });
 };
 
+/**
+ * Find Company Orders.
+ */
 export const findCompanyOrders = async ({
   companyId,
   status,
@@ -140,6 +163,9 @@ export const findCompanyOrders = async ({
   return { orders, total };
 };
 
+/**
+ * Find Farmer Orders.
+ */
 export const findFarmerOrders = async ({
   sellerId,
   status,
@@ -190,6 +216,9 @@ export const findFarmerOrders = async ({
   return { orders, total };
 };
 
+/**
+ * Create Order With Reservation.
+ */
 export const createOrderWithReservation = async ({
   companyId,
   listingId,
@@ -308,6 +337,9 @@ export const createOrderWithReservation = async ({
   });
 };
 
+/**
+ * Update Order Status.
+ */
 export const updateOrderStatus = async ({
   orderId,
   companyId,

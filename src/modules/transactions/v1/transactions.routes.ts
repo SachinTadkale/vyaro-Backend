@@ -1,3 +1,8 @@
+/**
+ * Module: Transactions.routes
+ * Purpose: Implements the Transactions.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { getTransactionsController } from "./transactions.controller";

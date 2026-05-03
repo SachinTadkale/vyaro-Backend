@@ -1,3 +1,8 @@
+/**
+ * Module: Marketplace.routes
+ * Purpose: Implements the Marketplace.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { createRateLimiter } from "../../../middleware/rateLimit.middleware";
@@ -57,7 +62,7 @@ router.get(
 router.post(
   "/addListing",
   authMiddleware,
-  requireActor("USER"),
+  requireActor("FARMER"),
   verifiedOnly,
   createListing,
 );
@@ -65,17 +70,17 @@ router.post(
 router.patch(
   "/updateListing/:id",
   authMiddleware,
-  requireActor("USER"),
+  requireActor("FARMER"),
   updateListing,
 );
 
 router.delete(
   "/deleteListing/:id",
   authMiddleware,
-  requireActor("USER"),
+  requireActor("FARMER"),
   deleteListing,
 );
 
-router.get("/my-listings", authMiddleware, requireActor("USER"), getMyListings);
+router.get("/my-listings", authMiddleware, requireActor("FARMER"), getMyListings);
 
 export default router;

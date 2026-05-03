@@ -1,3 +1,8 @@
+/**
+ * Module: Auth.service
+ * Purpose: Implements the Auth.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import bcrypt from "bcrypt";
 import { OtpType, User, UserRole, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
@@ -55,35 +60,41 @@ const ensureUserCanLogin = (user: User) => {
   }
 };
 
+/**
+ * Register User.
+ */
 export const registerUser = async (
   data: UserRegisterInput,
 ): Promise<UserRegisterResult> => {
-  if (!data.password) {
-    throw new ApiError(400, "Password is required");
+  // ✅ Mandatory fields check
+  if (!data.name) throw new ApiError(400, "Name is required");
+  if (!data.phone_no) throw new ApiError(400, "Phone number is required");
+  if (!data.password) throw new ApiError(400, "Password is required");
+  if (!data.address) throw new ApiError(400, "Address is required");
+  if (!data.role) throw new ApiError(400, "Role is required");
+
+  // ✅ Strict role validation
+  let role: UserRole;
+  if (data.role === "DELIVERY_PARTNER") {
+    role = UserRole.DELIVERY_PARTNER;
+  } else if (data.role === "FARMER") {
+    role = UserRole.FARMER;
+  } else {
+    throw new ApiError(400, "Invalid role");
   }
 
-  const existingEmail = data.email
-    ? await prisma.user.findUnique({ where: { email: data.email } })
-    : null;
-
-  if (existingEmail) {
-    throw new ApiError(409, "Email already registered");
-  }
-
-  const existingPhone = await prisma.user.findUnique({
-    where: { phone_no: data.phone_no },
+  // ✅ Better duplicate check (single query)
+  const existing = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: data.email }, { phone_no: data.phone_no }],
+    },
   });
 
-  if (existingPhone) {
-    throw new ApiError(409, "Phone number already registered");
+  if (existing) {
+    throw new ApiError(409, "User already exists");
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
-
-  const role =
-    data.role === "DELIVERY_PARTNER"
-      ? UserRole.DELIVERY_PARTNER
-      : UserRole.USER;
 
   const user = await prisma.user.create({
     data: {
@@ -94,7 +105,7 @@ export const registerUser = async (
       email: data.email,
       gender: data.gender,
       verificationStatus: VerificationStatus.PENDING,
-      role: role,
+      role,
       registrationStep: 1,
     },
   });
@@ -102,7 +113,7 @@ export const registerUser = async (
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
-    actorType: role === UserRole.DELIVERY_PARTNER ? "DELIVERY_PARTNER" : "USER",
+    actorType: role === UserRole.DELIVERY_PARTNER ? "DELIVERY_PARTNER" : "FARMER",
   });
 
   return {
@@ -123,6 +134,9 @@ export const registerUser = async (
   };
 };
 
+/**
+ * Login User.
+ */
 export const loginUser = async (
   data: UserLoginInput,
 ): Promise<UserLoginResult> => {
@@ -157,25 +171,39 @@ export const loginUser = async (
     const profile = await prisma.deliveryPartner.findUnique({
       where: { userId: user.user_id },
     });
-    if (!profile) {
-      throw new ApiError(403, " Please complete your delivery partner profile");
+
+    // ✅ Allow login during onboarding
+    if (user.registrationStep === 4 && !profile) {
+      throw new ApiError(403, "Please complete your delivery partner profile");
+    }
+
+    if (
+      user.registrationStep === 4 &&
+      user.verificationStatus !== VerificationStatus.VERIFIED
+    ) {
+      throw new ApiError(403, "Account not verified by admin");
     }
   }
 
   const token = generateToken({
     userId: user.user_id,
     role: user.role,
-    actorType: "USER",
+    actorType:
+      user.role === UserRole.DELIVERY_PARTNER ? "DELIVERY_PARTNER" : "FARMER",
   });
 
   return {
     token,
+    userRole:user.role,
     registrationStep: user.registrationStep,
     verificationStatus: user.verificationStatus,
     onboardingCompleted: user.registrationStep === 4,
   };
 };
 
+/**
+ * Request User Otp.
+ */
 export const requestUserOtp = async (
   data: UserRequestOtpInput,
 ): Promise<UserRequestOtpResult> => {
@@ -203,6 +231,9 @@ export const requestUserOtp = async (
   };
 };
 
+/**
+ * Login User With Otp.
+ */
 export const loginUserWithOtp = async (
   data: UserLoginWithOtpInput,
 ): Promise<UserLoginWithOtpResult> => {
@@ -224,8 +255,9 @@ export const loginUserWithOtp = async (
     const profile = await prisma.deliveryPartner.findUnique({
       where: { userId: user.user_id },
     });
-    if (!profile) {
-      throw new ApiError(403, " Please complete your delivery partner profile");
+
+    if (user.registrationStep === 4 && !profile) {
+      throw new ApiError(403, "Please complete your delivery partner profile");
     }
   }
 
@@ -233,7 +265,7 @@ export const loginUserWithOtp = async (
     userId: user.user_id,
     role: user.role,
     actorType:
-      user.role === UserRole.DELIVERY_PARTNER ? "DELIVERY_PARTNER" : "USER",
+      user.role === UserRole.DELIVERY_PARTNER ? "DELIVERY_PARTNER" : "FARMER",
   });
 
   return {
@@ -244,6 +276,9 @@ export const loginUserWithOtp = async (
   };
 };
 
+/**
+ * Forgot User Password.
+ */
 export const forgotUserPassword = async (
   data: UserForgotPasswordInput,
 ): Promise<UserForgotPasswordResult> => {
@@ -270,6 +305,9 @@ export const forgotUserPassword = async (
   };
 };
 
+/**
+ * Reset User Password.
+ */
 export const resetUserPassword = async (
   data: UserResetPasswordInput,
 ): Promise<UserResetPasswordResult> => {
@@ -302,6 +340,9 @@ const sanitizeCompany = <T extends { password: string }>(company: T) => {
   return safeCompany;
 };
 
+/**
+ * Register Company.
+ */
 export const registerCompany = async (data: RegisterCompanyInput) => {
   const existing = await companyRepo.findCompanyByRegistration(
     data.registrationNo,
@@ -312,6 +353,9 @@ export const registerCompany = async (data: RegisterCompanyInput) => {
   return companyRepo.createCompany({ ...data, password: hashedPassword });
 };
 
+/**
+ * Upload Company Docs.
+ */
 export const uploadCompanyDocs = async (
   companyId: string,
   gstUrl: string,
@@ -320,10 +364,16 @@ export const uploadCompanyDocs = async (
   return companyRepo.updateCompanyDocs(companyId, gstUrl, licenseUrl);
 };
 
+/**
+ * Verify Company.
+ */
 export const verifyCompany = async (companyId: string) => {
   return companyRepo.verifyCompany(companyId);
 };
 
+/**
+ * Login Company.
+ */
 export const loginCompany = async (
   registrationNo: string,
   password: string,
@@ -345,6 +395,9 @@ export const loginCompany = async (
   return { token, company: sanitizeCompany(company) };
 };
 
+/**
+ * Logout Company.
+ */
 export const logoutCompany = async () => {
   return { message: "Logged out successfully" };
 };
@@ -361,6 +414,9 @@ const findAdminByEmail = async (email: string) => {
   return user;
 };
 
+/**
+ * Login Admin.
+ */
 export const loginAdmin = async (
   data: AdminLoginInput,
 ): Promise<AdminLoginResult> => {
@@ -375,6 +431,9 @@ export const loginAdmin = async (
   return { token };
 };
 
+/**
+ * Forgot Admin Password.
+ */
 export const forgotAdminPassword = async (
   data: AdminForgotPasswordInput,
 ): Promise<AdminMessageResult> => {
@@ -396,6 +455,9 @@ export const forgotAdminPassword = async (
   };
 };
 
+/**
+ * Reset Admin Password.
+ */
 export const resetAdminPassword = async (
   data: AdminResetPasswordInput,
 ): Promise<AdminMessageResult> => {

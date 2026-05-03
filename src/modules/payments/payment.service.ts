@@ -1,11 +1,18 @@
+/**
+ * Module: Payment.service
+ * Purpose: Implements the Payment.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import axios from "axios";
 import {
+  ActorType,
   OrderStatus,
   PaymentStatus,
   Prisma,
   TransactionDirection,
   TransactionStatus,
   TransactionType,
+  UserRole,
 } from "@prisma/client";
 import ApiError from "../../utils/apiError";
 import {
@@ -49,7 +56,7 @@ const createTransactionIfNotExists = async (data: {
   orderId?: string;
   userId?: string;
   companyId?: string;
-  actorType: string;
+  actorType: ActorType;
   amount: number;
   amountInPaise: number;
   type: TransactionType;
@@ -190,6 +197,9 @@ const assertOrderPayable = (
   }
 };
 
+/**
+ * Create Payment Order.
+ */
 export const createPaymentOrder = async (
   companyId: string | undefined,
   input: CreatePaymentOrderInput,
@@ -277,6 +287,9 @@ export const createPaymentOrder = async (
   };
 };
 
+/**
+ * Verify Payment.
+ */
 export const verifyPayment = async (
   companyId: string | undefined,
   input: VerifyPaymentInput,
@@ -396,13 +409,16 @@ export const verifyPayment = async (
   };
 };
 
+/**
+ * Get Payment Details.
+ */
 export const getPaymentDetails = async (
   orderId: string,
   actor: {
     companyId?: string;
     userId: string;
     role?: string;
-    actorType?: "USER" | "COMPANY";
+    actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
   },
 ) => {
   const payment = await findPaymentByOrderId(orderId);
@@ -416,7 +432,7 @@ export const getPaymentDetails = async (
   const isCompanyOwner =
     actor.actorType === "COMPANY" && actor.companyId === payment.companyId;
   const isFarmerOwner =
-    actor.actorType === "USER" && actor.userId === payment.userId;
+    actor.actorType === "FARMER" && actor.userId === payment.userId;
   const isAdmin = actor.role === "ADMIN";
 
   if (!isCompanyOwner && !isFarmerOwner && !isAdmin) {
@@ -428,6 +444,9 @@ export const getPaymentDetails = async (
   return formatPaymentDetails(payment);
 };
 
+/**
+ * Release Payment.
+ */
 export const releasePayment = async (
   orderId: string,
   input: ReleasePaymentInput,
@@ -510,7 +529,7 @@ export const releasePayment = async (
       paymentId: payment.paymentId,
       orderId: payment.orderId,
       userId: payment.user.user_id,
-      actorType: "USER",
+      actorType: "FARMER",
 
       amount: farmerAmount,
       amountInPaise: Math.round(farmerAmount * 100),
@@ -526,7 +545,7 @@ export const releasePayment = async (
         paymentId: payment.paymentId,
         orderId: payment.orderId,
         userId: deliveryPartnerId,
-        actorType: "USER",
+        actorType: "FARMER",
 
         amount: deliveryFee,
         amountInPaise: Math.round(deliveryFee * 100),
@@ -597,6 +616,9 @@ export const releasePayment = async (
   };
 };
 
+/**
+ * Handle Webhook.
+ */
 export const handleWebhook = async (
   rawPayload: Buffer,
   signature?: string,

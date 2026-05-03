@@ -1,3 +1,8 @@
+/**
+ * Module: Admin Auth.routes
+ * Purpose: Implements the Admin Auth.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import {
   forgotPasswordAdminController,

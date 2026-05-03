@@ -1,11 +1,25 @@
+/**
+ * Module: Product.controller
+ * Purpose: Implements the Product.controller module for FarmZy.
+ *
+ * i18n:
+ *  - All mutating operations return message as a TranslationResult { en, hi, mr }
+ *  - All responses include meta: { lang } from the x-lang header
+ *  - Frontend picks data.translations?[lang] ?? data.productName for display
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import * as productService from "../product.service";
 import { uploadToCloudinary } from "../../../config/cloudinary";
+import { translateMessage } from "../../../services/translation/translation.service";
 
 //////////////////////////////////////
 // CREATE PRODUCT
 //////////////////////////////////////
+
+/**
+ * Create Product.
+ */
 export const createProduct = asyncHandler(
   async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
@@ -21,10 +35,14 @@ export const createProduct = asyncHandler(
       imageUrl,
     );
 
+    // Translate the success message dynamically for the response
+    const message = await translateMessage(result.message);
+
     res.status(201).json({
       success: true,
-      message: result.message,
+      message,
       data: result.product,
+      meta: { lang: req.lang },
     });
   },
 );
@@ -33,6 +51,9 @@ export const createProduct = asyncHandler(
 // GET MY PRODUCTS
 //////////////////////////////////////
 
+/**
+ * Get My Products.
+ */
 export const getMyProducts = asyncHandler(
   async (req: Request, res: Response) => {
     const products = await productService.getMyProducts(req.user.userId);
@@ -40,6 +61,7 @@ export const getMyProducts = asyncHandler(
     res.status(200).json({
       success: true,
       data: products,
+      meta: { lang: req.lang },
     });
   },
 );
@@ -48,6 +70,9 @@ export const getMyProducts = asyncHandler(
 // UPDATE PRODUCT
 //////////////////////////////////////
 
+/**
+ * Update Product.
+ */
 export const updateProduct = asyncHandler(
   async (req: Request, res: Response) => {
     let imageUrl: string | undefined;
@@ -64,10 +89,13 @@ export const updateProduct = asyncHandler(
       imageUrl,
     );
 
+    const message = await translateMessage(result.message);
+
     res.status(200).json({
       success: true,
-      message: result.message,
+      message,
       data: result.product,
+      meta: { lang: req.lang },
     });
   },
 );
@@ -76,6 +104,9 @@ export const updateProduct = asyncHandler(
 // DELETE PRODUCT
 //////////////////////////////////////
 
+/**
+ * Delete Product.
+ */
 export const deleteProduct = asyncHandler(
   async (req: Request, res: Response) => {
     const result = await productService.deleteProduct(
@@ -83,9 +114,12 @@ export const deleteProduct = asyncHandler(
       req.user.userId,
     );
 
+    const message = await translateMessage(result.message);
+
     res.status(200).json({
       success: true,
-      message: result.message,
+      message,
+      meta: { lang: req.lang },
     });
   },
 );

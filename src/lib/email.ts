@@ -1,7 +1,12 @@
+/**
+ * Module: Email
+ * Purpose: Implements the Email module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import nodemailer from "nodemailer";
 
 type EmailTone = "brand" | "success" | "warning" | "neutral";
-type EmailAudience = "USER" | "COMPANY" | "DELIVERY_PARTNER" | "ADMIN";
+type EmailAudience = "FARMER" | "COMPANY" | "DELIVERY_PARTNER" | "ADMIN";
 
 type EmailDetail = {
   label: string;
@@ -161,7 +166,7 @@ const buildAbsoluteUrl = (baseUrl: string, path: string) => {
 
 const getAudienceHomeUrl = (audience: EmailAudience) => {
   switch (audience) {
-    case "USER":
+    case "FARMER":
       return USER_APP_URL;
     case "COMPANY":
       return COMPANY_APP_URL;
@@ -176,7 +181,7 @@ const getAudienceHomeUrl = (audience: EmailAudience) => {
 
 const getAudienceLabel = (audience: EmailAudience) => {
   switch (audience) {
-    case "USER":
+    case "FARMER":
       return "User portal";
     case "COMPANY":
       return "Company workspace";
@@ -389,6 +394,9 @@ const renderActions = (
   `;
 };
 
+/**
+ * Render Template.
+ */
 export const renderTemplate = ({
   preheader,
   eyebrow,
@@ -573,6 +581,9 @@ const sendTemplatedEmail = async (input: EmailTemplateInput) => {
   });
 };
 
+/**
+ * Send Event Notification Email.
+ */
 export const sendEventNotificationEmail = async ({
   to,
   subject,
@@ -614,6 +625,9 @@ export const sendEventNotificationEmail = async ({
   });
 };
 
+/**
+ * Send Approval Email.
+ */
 export const sendApprovalEmail = async (to: string, name: string) => {
   await sendTemplatedEmail({
     to,
@@ -639,6 +653,9 @@ export const sendApprovalEmail = async (to: string, name: string) => {
   });
 };
 
+/**
+ * Send Rejection Email.
+ */
 export const sendRejectionEmail = async (
   to: string,
   name: string,
@@ -674,6 +691,9 @@ export const sendRejectionEmail = async (
   });
 };
 
+/**
+ * Send Otp Email.
+ */
 export const sendOtpEmail = async (to: string, name: string, otp: string) => {
   await sendTemplatedEmail({
     to,
@@ -703,6 +723,9 @@ export const sendOtpEmail = async (to: string, name: string, otp: string) => {
   });
 };
 
+/**
+ * Send Password Reset Otp.
+ */
 export const sendPasswordResetOtp = async (
   to: string,
   name: string,

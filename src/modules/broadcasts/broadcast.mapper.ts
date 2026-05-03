@@ -1,3 +1,8 @@
+/**
+ * Module: Broadcast.mapper
+ * Purpose: Implements the Broadcast.mapper module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Broadcast, BroadcastType } from "@prisma/client";
 import type {
   BroadcastResponse,
@@ -37,8 +42,14 @@ const BROADCAST_UI_MAP: Record<BroadcastType, BroadcastUiMeta> = {
   },
 };
 
+/**
+ * Get Broadcast Ui Meta.
+ */
 export const getBroadcastUiMeta = (type: BroadcastType) => BROADCAST_UI_MAP[type];
 
+/**
+ * Map Broadcast To Response.
+ */
 export const mapBroadcastToResponse = (
   broadcast: Broadcast
 ): BroadcastResponse => ({

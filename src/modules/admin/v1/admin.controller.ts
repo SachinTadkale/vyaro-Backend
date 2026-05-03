@@ -1,9 +1,17 @@
+/**
+ * Module: Admin.controller
+ * Purpose: Implements the Admin.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import * as adminService from "../admin.service";
 import notificationService from "../../notification/notification.service";
 import { NotificationEventType } from "../../notification/notification.types";
 
+/**
+ * Get Admin Stats.
+ */
 export const getAdminStats = asyncHandler(async (_req: Request, res: Response) => {
   const stats = await adminService.getAdminStats();
 
@@ -13,6 +21,9 @@ export const getAdminStats = asyncHandler(async (_req: Request, res: Response) =
   });
 });
 
+/**
+ * Get Users.
+ */
 export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
   const users = await adminService.getUsers();
 
@@ -22,6 +33,9 @@ export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * Get Companies.
+ */
 export const getCompanies = asyncHandler(async (_req: Request, res: Response) => {
   const companies = await adminService.getCompanies();
 
@@ -31,6 +45,9 @@ export const getCompanies = asyncHandler(async (_req: Request, res: Response) =>
   });
 });
 
+/**
+ * Get Orders.
+ */
 export const getOrders = asyncHandler(async (_req: Request, res: Response) => {
   const orders = await adminService.getOrders();
 
@@ -40,6 +57,9 @@ export const getOrders = asyncHandler(async (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * Get Pending Users.
+ */
 export const getPendingUsers = asyncHandler(
   async (_req: Request, res: Response) => {
     const users = await adminService.getPendingKyc();
@@ -51,6 +71,9 @@ export const getPendingUsers = asyncHandler(
   }
 );
 
+/**
+ * Get Pending Companies.
+ */
 export const getPendingCompanies = asyncHandler(
   async (_req: Request, res: Response) => {
     const companies = await adminService.getPendingCompanyVerifications();
@@ -62,6 +85,9 @@ export const getPendingCompanies = asyncHandler(
   }
 );
 
+/**
+ * Approve Company.
+ */
 export const approveCompany = asyncHandler(
   async (req: Request, res: Response) => {
     const companyId = req.params.id as string;
@@ -74,6 +100,9 @@ export const approveCompany = asyncHandler(
   }
 );
 
+/**
+ * Reject Company.
+ */
 export const rejectCompany = asyncHandler(
   async (req: Request, res: Response) => {
     const companyId = req.params.id as string;
@@ -86,6 +115,9 @@ export const rejectCompany = asyncHandler(
   }
 );
 
+/**
+ * Approve User.
+ */
 export const approveUser = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.id as string;
   const result = await adminService.verifyUser(userId);
@@ -102,6 +134,9 @@ export const approveUser = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Reject User.
+ */
 export const rejectUser = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.id as string;
   const reason = req.body.reason as string | undefined;
@@ -119,6 +154,9 @@ export const rejectUser = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Block User.
+ */
 export const blockUser = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.id as string;
   const result = await adminService.blockUser(userId);
@@ -129,6 +167,9 @@ export const blockUser = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Unblock User.
+ */
 export const unblockUser = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.params.id as string;
   const result = await adminService.unblockUser(userId);

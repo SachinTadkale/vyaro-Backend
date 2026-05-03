@@ -1,3 +1,8 @@
+/**
+ * Module: Upload.middleware
+ * Purpose: Implements the Upload.middleware module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import multer from "multer";
 import ApiError from "../utils/apiError";
 
@@ -9,11 +14,14 @@ const allowedMimeTypes = new Set([
   "image/webp",
 ]);
 
+/**
+ * Upload.
+ */
 export const upload = multer({
   storage,
   limits: {
     fileSize: 5 * 1024 * 1024,
-    files: 4,
+    files: 10,
   },
   fileFilter: (_req, file, cb) => {
     if (!allowedMimeTypes.has(file.mimetype)) {

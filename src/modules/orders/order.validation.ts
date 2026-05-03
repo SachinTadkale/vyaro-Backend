@@ -1,17 +1,31 @@
+/**
+ * Module: Order.validation
+ * Purpose: Implements the Order.validation module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { z, ZodType } from "zod";
 import ApiError from "../../utils/apiError";
 
 const positiveNumber = z.coerce.number().positive();
 
+/**
+ * Create Order Schema.
+ */
 export const createOrderSchema = z.object({
   listingId: z.string().trim().min(1, "listingId is required"),
   quantity: positiveNumber,
 });
 
+/**
+ * Order Id Param Schema.
+ */
 export const orderIdParamSchema = z.object({
   id: z.string().trim().min(1, "Order id is required"),
 });
 
+/**
+ * Company Orders Query Schema.
+ */
 export const companyOrdersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
@@ -21,6 +35,9 @@ export const companyOrdersQuerySchema = z.object({
   order: z.enum(["asc", "desc"]).default("desc"),
 });
 
+/**
+ * Farmer Orders Query Schema.
+ */
 export const farmerOrdersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
@@ -30,6 +47,9 @@ export const farmerOrdersQuerySchema = z.object({
   order: z.enum(["asc", "desc"]).default("desc"),
 });
 
+/**
+ * Validate Schema.
+ */
 export const validateSchema = <T>(schema: ZodType<T>, data: unknown): T => {
   const result = schema.safeParse(data);
 

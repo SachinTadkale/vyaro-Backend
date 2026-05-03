@@ -1,3 +1,8 @@
+/**
+ * Module: Delivery Partners.routes
+ * Purpose: Implements the Delivery Partners.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { UserRole } from "@prisma/client";
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";

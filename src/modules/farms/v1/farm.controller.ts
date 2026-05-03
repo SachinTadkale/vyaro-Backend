@@ -1,7 +1,15 @@
+/**
+ * Module: Farm.controller
+ * Purpose: Implements the Farm.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import * as farmService from "../farm.service";
 
+/**
+ * Add Farm.
+ */
 export const addFarm = asyncHandler(async (req: any, res: Response) => {
   const result = await farmService.createFarm(req.user.userId, req.body);
 

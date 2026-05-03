@@ -1,3 +1,8 @@
+/**
+ * Module: Otp.service
+ * Purpose: Implements the Otp.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import bcrypt from "bcrypt";
 import { OtpType } from "@prisma/client";
 import prisma from "../../config/prisma";

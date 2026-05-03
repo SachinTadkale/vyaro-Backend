@@ -1,3 +1,8 @@
+/**
+ * Module: Admin.routes
+ * Purpose: Implements the Admin.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { adminOnly } from "../../../middleware/admin.middleware";

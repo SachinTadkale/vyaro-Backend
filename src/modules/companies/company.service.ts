@@ -1,6 +1,14 @@
+/**
+ * Module: Company.service
+ * Purpose: Implements the Company.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
 
+/**
+ * Get Company Profile Service.
+ */
 export const getCompanyProfileService = async (companyId: string) => {
   const company = await prisma.company.findUnique({
     where: { companyId },
@@ -27,6 +35,9 @@ export const getCompanyProfileService = async (companyId: string) => {
   return company;
 };
 
+/**
+ * Update Company Profile Image Service.
+ */
 export const updateCompanyProfileImageService = async (
   companyId: string,
   profileImageUrl: string
@@ -42,6 +53,9 @@ export const updateCompanyProfileImageService = async (
   return company;
 };
 
+/**
+ * Delete Company Profile Image Service.
+ */
 export const deleteCompanyProfileImageService = async (companyId: string) => {
   const company = await prisma.company.update({
     where: { companyId },

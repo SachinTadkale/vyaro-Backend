@@ -1,5 +1,13 @@
+/**
+ * Module: Leads.validation
+ * Purpose: Implements the Leads.validation module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { z } from "zod";
 
+/**
+ * Create Lead Schema.
+ */
 export const createLeadSchema = z.object({
   email: z.email("email must be a valid email address").trim().toLowerCase(),
   role: z.enum(["FARMER", "COMPANY"]),

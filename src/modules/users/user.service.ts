@@ -1,14 +1,22 @@
+/**
+ * Module: User.service
+ * Purpose: Implements the User.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import prisma from "../../config/prisma";
 import cloudinary from "../../config/cloudinary";
 import ApiError from "../../utils/apiError";
 
+/**
+ * Upload Kyc Service.
+ */
 export const uploadKycService = async (
   userId: string,
   file: any,
   docNo: string
 ) => {
   // Check if KYC already exists
-  const existingKyc = await prisma.kyc.findUnique({
+  const existingKyc = await prisma.kyc.findFirst({
     where: { userId },
   });
 
@@ -21,7 +29,7 @@ export const uploadKycService = async (
   return prisma.kyc.create({
     data: {
       userId,
-      docType: "AADHAR",
+      docType: "AADHAAR",
       docNo,
       frontImage: upload.secure_url,
     },

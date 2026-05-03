@@ -1,3 +1,8 @@
+/**
+ * Module: Admin Auth.types
+ * Purpose: Implements the Admin Auth.types module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import type { NotificationPayload } from "../notification/notification.types";
 
 export type AdminLoginInput = {

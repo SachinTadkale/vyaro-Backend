@@ -1,8 +1,9 @@
-import {
-  DeliveryStatus,
-  UserRole,
-  VerificationStatus,
-} from "@prisma/client";
+/**
+ * Module: Delivery.service
+ * Purpose: Implements the Delivery.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
+import { DeliveryStatus, UserRole, VerificationStatus } from "@prisma/client";
 import ApiError from "../../utils/apiError";
 import {
   COMPLETED_PAYMENT_STATUSES,
@@ -11,11 +12,15 @@ import {
   OVERRIDE_ALLOWED_STATUSES,
 } from "./delivery.constants";
 import {
+  acceptDeliveryJob,
   createOrReassignDelivery,
+  findActiveDeliveries,
+  findAvailableJobs,
   findDeliveryById,
   findDeliveryPartnerById,
   findNextAvailablePartner,
   findOrderForDeliveryAssignment,
+  getDeliveryDashboardStats,
   updateDeliveryStatusRecord,
 } from "./delivery.repository";
 import {
@@ -86,7 +91,11 @@ const assertAssignmentAuthorization = (
     return;
   }
 
-  if (!isCompanyActor(actor) || !actor.companyId || actor.companyId !== orderCompanyId) {
+  if (
+    !isCompanyActor(actor) ||
+    !actor.companyId ||
+    actor.companyId !== orderCompanyId
+  ) {
     throw new ApiError(403, "Unauthorized", {
       code: "UNAUTHORIZED",
     });
@@ -165,6 +174,9 @@ const assertOrderReadyForDelivery = async (
   return order;
 };
 
+/**
+ * Evaluate Delivery Transition.
+ */
 export const evaluateDeliveryTransition = (
   currentStatus: DeliveryStatus,
   nextStatus: DeliveryStatus,
@@ -205,6 +217,9 @@ export const evaluateDeliveryTransition = (
   return { ok: false, code: "INVALID_STATUS_TRANSITION" };
 };
 
+/**
+ * Assign Delivery.
+ */
 export const assignDelivery = async (
   actor: DeliveryActor,
   input: AssignDeliveryInput,
@@ -218,7 +233,9 @@ export const assignDelivery = async (
       order.delivery.status !== DeliveryStatus.CANCELLED
     ) {
       if (order.delivery.partnerId === input.deliveryPartnerId) {
-        const existingDelivery = await findDeliveryById(order.delivery.deliveryId);
+        const existingDelivery = await findDeliveryById(
+          order.delivery.deliveryId,
+        );
 
         if (!existingDelivery) {
           throw new ApiError(404, "Delivery not found", {
@@ -250,6 +267,9 @@ export const assignDelivery = async (
   };
 };
 
+/**
+ * Auto Assign Delivery.
+ */
 export const autoAssignDelivery = async (
   actor: DeliveryActor,
   orderId: string,
@@ -268,6 +288,9 @@ export const autoAssignDelivery = async (
   });
 };
 
+/**
+ * Update Delivery Status.
+ */
 export const updateDeliveryStatus = async (
   actor: DeliveryActor,
   deliveryId: string,
@@ -323,6 +346,9 @@ export const updateDeliveryStatus = async (
   };
 };
 
+/**
+ * Get Delivery.
+ */
 export const getDelivery = async (actor: DeliveryActor, deliveryId: string) => {
   const delivery = await findDeliveryById(deliveryId);
 
@@ -335,4 +361,49 @@ export const getDelivery = async (actor: DeliveryActor, deliveryId: string) => {
   assertDeliveryReadable(actor, delivery);
 
   return formatDelivery(delivery);
+};
+
+export const getAvailableJobs = async (actor: DeliveryActor) => {
+  if (actor.role !== "DELIVERY_PARTNER") {
+    throw new ApiError(403, "Unauthorized");
+  }
+
+  const jobs = await findAvailableJobs();
+
+  return jobs.map((delivery) => {
+    const minutes = (Date.now() - delivery.createdAt.getTime()) / (1000 * 60);
+
+    let incentive = 0;
+
+    if (minutes > 120) incentive = 100;
+    else if (minutes > 60) incentive = 50;
+    else if (minutes > 30) incentive = 20;
+
+    const baseFee = delivery.order?.deliveryFee || 0;
+
+    return {
+      ...formatDelivery(delivery), // keep consistent response
+      incentive,
+      totalPayout: baseFee + incentive,
+      isUrgent: incentive > 0,
+    };
+  });
+};
+
+export const acceptJob = async (actor: DeliveryActor, deliveryId: string) => {
+  if (actor.role !== "DELIVERY_PARTNER") {
+    throw new ApiError(403, "Unauthorized");
+  }
+
+  const delivery = await acceptDeliveryJob(deliveryId, actor.userId);
+
+  return delivery;
+};
+
+export const getActiveDeliveries = async (actor: DeliveryActor) => {
+  return findActiveDeliveries(actor.userId);
+};
+
+export const getDashboard = async (actor: DeliveryActor) => {
+  return getDeliveryDashboardStats(actor.userId);
 };

@@ -1,3 +1,8 @@
+/**
+ * Module: Marketplace.geo
+ * Purpose: Implements the Marketplace.geo module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Prisma } from "@prisma/client";
 import { EARTH_RADIUS_KM } from "./marketplace.constants";
 
@@ -22,6 +27,9 @@ const clampLongitude = (value: number) => {
   return value;
 };
 
+/**
+ * Get Bounding Box.
+ */
 export const getBoundingBox = (
   latitude: number,
   longitude: number,
@@ -42,6 +50,9 @@ export const getBoundingBox = (
   };
 };
 
+/**
+ * Calculate Haversine Distance Km.
+ */
 export const calculateHaversineDistanceKm = (
   fromLat: number,
   fromLng: number,
@@ -59,6 +70,9 @@ export const calculateHaversineDistanceKm = (
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(haversine));
 };
 
+/**
+ * Haversine Distance Sql.
+ */
 export const haversineDistanceSql = (latitude: number, longitude: number) =>
   Prisma.sql`
     (

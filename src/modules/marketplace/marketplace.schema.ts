@@ -1,3 +1,8 @@
+/**
+ * Module: Marketplace.schema
+ * Purpose: Implements the Marketplace.schema module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { ListingStatus, ListingType } from "@prisma/client";
 import { z, ZodType } from "zod";
 import ApiError from "../../utils/apiError";
@@ -40,6 +45,9 @@ const geoFieldsSchema = z
     }
   });
 
+/**
+ * Create Listing Schema.
+ */
 export const createListingSchema = z
   .object({
     productId: z.string().trim().min(1, "productId is required"),
@@ -58,6 +66,9 @@ export const createListingSchema = z
     },
   );
 
+/**
+ * Marketplace Listings Query Schema.
+ */
 export const marketplaceListingsQuerySchema = geoFieldsSchema.extend({
   search: z.string().trim().min(1).optional(),
   productId: z.string().trim().min(1).optional(),
@@ -93,12 +104,21 @@ export const marketplaceListingsQuerySchema = geoFieldsSchema.extend({
     },
   );
 
+/**
+ * Listing Id Param Schema.
+ */
 export const listingIdParamSchema = z.object({
   id: z.string().trim().min(1, "Listing id is required"),
 });
 
+/**
+ * Listing Geo Query Schema.
+ */
 export const listingGeoQuerySchema = geoFieldsSchema;
 
+/**
+ * Update Listing Schema.
+ */
 export const updateListingSchema = z
   .object({
     price: positiveNumber.optional(),
@@ -147,6 +167,9 @@ export const updateListingSchema = z
     }
   });
 
+/**
+ * My Listings Query Schema.
+ */
 export const myListingsQuerySchema = z.object({
   status: z.nativeEnum(ListingStatus).optional(),
   page: z.coerce.number().int().positive().default(DEFAULT_LISTINGS_PAGE),
@@ -155,6 +178,9 @@ export const myListingsQuerySchema = z.object({
   order: z.enum(["asc", "desc"]).default("desc"),
 });
 
+/**
+ * Validate Schema.
+ */
 export const validateSchema = <T>(schema: ZodType<T>, data: unknown): T => {
   const result = schema.safeParse(data);
 
@@ -174,6 +200,9 @@ export const validateSchema = <T>(schema: ZodType<T>, data: unknown): T => {
   return result.data;
 };
 
+/**
+ * Is Geo Mode.
+ */
 export const isGeoMode = <T extends { lat?: number; lng?: number }>(
   query: T,
 ): query is T & { lat: number; lng: number } =>

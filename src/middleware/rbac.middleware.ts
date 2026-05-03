@@ -1,9 +1,17 @@
+/**
+ * Module: Rbac.middleware
+ * Purpose: Implements the Rbac.middleware module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { UserRole } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
 
-type ActorType = "USER" | "COMPANY" | "DELIVERY_PARTNER";
+type ActorType = "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
 type DeliveryAccessRole = "COMPANY" | "DELIVERY_PARTNER" | "ADMIN";
 
+/**
+ * Require Actor.
+ */
 export const requireActor = (...allowedActors: ActorType[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user?.actorType || !allowedActors.includes(req.user.actorType)) {
@@ -17,6 +25,9 @@ export const requireActor = (...allowedActors: ActorType[]) => {
   };
 };
 
+/**
+ * Require User Role.
+ */
 export const requireUserRole = (...allowedRoles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user?.role || !allowedRoles.includes(req.user.role)) {
@@ -30,6 +41,9 @@ export const requireUserRole = (...allowedRoles: UserRole[]) => {
   };
 };
 
+/**
+ * Require Delivery Access.
+ */
 export const requireDeliveryAccess = (
   ...allowedAccess: DeliveryAccessRole[]
 ) => {

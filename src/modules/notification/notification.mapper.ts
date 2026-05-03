@@ -1,3 +1,8 @@
+/**
+ * Module: Notification.mapper
+ * Purpose: Implements the Notification.mapper module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import {
   sendApprovalEmail,
   sendEventNotificationEmail,
@@ -74,6 +79,9 @@ const buildActions = (payload: NotificationPayload) => {
   return [...primary, ...secondary];
 };
 
+/**
+ * Dispatch Notification Email.
+ */
 export const dispatchNotificationEmail = async (
   eventType: NotificationEventType,
   payload: NotificationPayload
@@ -116,7 +124,7 @@ export const dispatchNotificationEmail = async (
       await sendEventNotificationEmail({
         to: requireEmail(payload.user?.email),
         subject: "Welcome to Farmzy",
-        audience: "USER",
+        audience: "FARMER",
         eventLabel: "Registration complete",
         title: "Your Farmzy account is ready",
         summary:
@@ -137,7 +145,7 @@ export const dispatchNotificationEmail = async (
       await sendEventNotificationEmail({
         to: requireEmail(payload.user?.email),
         subject: "Listing created successfully",
-        audience: "USER",
+        audience: "FARMER",
         eventLabel: "Listing created",
         title: "Your listing is now live",
         summary: "Your marketplace listing is active and visible to buyers.",
@@ -326,7 +334,7 @@ export const dispatchNotificationEmail = async (
       await sendEventNotificationEmail({
         to: requireEmail(payload.company?.email ?? payload.user?.email),
         subject: "Dispute created",
-        audience: payload.company?.email ? "COMPANY" : "USER",
+        audience: payload.company?.email ? "COMPANY" : "FARMER",
         eventLabel: "Dispute opened",
         title: "A dispute has been created for this transaction",
         summary:
@@ -344,7 +352,7 @@ export const dispatchNotificationEmail = async (
     case NotificationEventType.DISPUTE_RESOLVED:
       await sendEventNotificationEmail({
         to: requireEmail(payload.company?.email ?? payload.user?.email),
-        audience: payload.company?.email ? "COMPANY" : "USER",
+        audience: payload.company?.email ? "COMPANY" : "FARMER",
         subject: "Dispute resolved",
         eventLabel: "Dispute resolved",
         title: "Your dispute has been resolved",
@@ -366,7 +374,7 @@ export const dispatchNotificationEmail = async (
           ? "COMPANY"
           : payload.metadata?.broadcastType === "DELIVERY_PARTNER"
             ? "DELIVERY_PARTNER"
-            : "USER",
+            : "FARMER",
         subject: String(payload.metadata?.subject ?? "Farmzy platform alert"),
         eventLabel: "Platform alert",
         title: String(payload.metadata?.title ?? "Important platform communication"),

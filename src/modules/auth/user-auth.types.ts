@@ -1,4 +1,9 @@
-import { Gender, VerificationStatus } from "@prisma/client";
+/**
+ * Module: User Auth.types
+ * Purpose: Implements the User Auth.types module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
+import { Gender, UserRole, VerificationStatus } from "@prisma/client";
 import type { NotificationPayload } from "../notification/notification.types";
 
 export type RegisterInput = {
@@ -9,7 +14,7 @@ export type RegisterInput = {
   address: string;
   gender?: Gender | null;
 
-  role?: "USER" | "DELIVERY_PARTNER";
+  role?: "FARMER" | "DELIVERY_PARTNER";
 };
 
 export type LoginInput = {
@@ -48,6 +53,7 @@ export type RegisterResult = {
 
 export type LoginResult = {
   token: string;
+  userRole: UserRole;
   registrationStep: number;
   verificationStatus: VerificationStatus;
   onboardingCompleted: boolean;

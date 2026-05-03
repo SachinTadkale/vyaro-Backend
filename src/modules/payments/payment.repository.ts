@@ -1,6 +1,14 @@
+/**
+ * Module: Payment.repository
+ * Purpose: Implements the Payment.repository module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
 import prisma from "../../config/prisma";
 
+/**
+ * Payment Context Select.
+ */
 export const paymentContextSelect = {
   orderId: true,
   companyId: true,
@@ -42,6 +50,9 @@ export const paymentContextSelect = {
   },
 } satisfies Prisma.OrderSelect;
 
+/**
+ * Payment Details Select.
+ */
 export const paymentDetailsSelect = {
   paymentId: true,
   orderId: true,
@@ -158,6 +169,9 @@ export const paymentDetailsSelect = {
   },
 } satisfies Prisma.PaymentSelect;
 
+/**
+ * Find Order For Payment By Company.
+ */
 export const findOrderForPaymentByCompany = (
   orderId: string,
   companyId: string,
@@ -167,12 +181,18 @@ export const findOrderForPaymentByCompany = (
     select: paymentContextSelect,
   });
 
+/**
+ * Find Payment By Order Id.
+ */
 export const findPaymentByOrderId = (orderId: string) =>
   prisma.payment.findUnique({
     where: { orderId },
     select: paymentDetailsSelect,
   });
 
+/**
+ * Find Payment By Order Id For Company.
+ */
 export const findPaymentByOrderIdForCompany = (
   orderId: string,
   companyId: string,
@@ -182,18 +202,27 @@ export const findPaymentByOrderIdForCompany = (
     select: paymentDetailsSelect,
   });
 
+/**
+ * Find Payment By Razorpay Order Id.
+ */
 export const findPaymentByRazorpayOrderId = (razorpayOrderId: string) =>
   prisma.payment.findFirst({
     where: { razorpayOrderId },
     select: paymentDetailsSelect,
   });
 
+/**
+ * Find Payment By Razorpay Payment Id.
+ */
 export const findPaymentByRazorpayPaymentId = (razorpayPaymentId: string) =>
   prisma.payment.findFirst({
     where: { razorpayPaymentId },
     select: paymentDetailsSelect,
   });
 
+/**
+ * Create Or Reuse Initiated Payment.
+ */
 export const createOrReuseInitiatedPayment = async ({
   order,
   amount,
@@ -249,6 +278,9 @@ export const createOrReuseInitiatedPayment = async ({
     select: paymentDetailsSelect,
   });
 
+/**
+ * Mark Payment Verified And Held.
+ */
 export const markPaymentVerifiedAndHeld = async ({
   orderId,
   razorpayOrderId,
@@ -315,6 +347,9 @@ export const markPaymentVerifiedAndHeld = async ({
     });
   });
 
+/**
+ * Mark Payment Failed.
+ */
 export const markPaymentFailed = async ({
   orderId,
   failureReason,
@@ -340,6 +375,9 @@ export const markPaymentFailed = async ({
     });
   });
 
+/**
+ * Store Webhook Event If New.
+ */
 export const storeWebhookEventIfNew = async ({
   eventId,
   eventType,
@@ -377,6 +415,9 @@ export const storeWebhookEventIfNew = async ({
   }
 };
 
+/**
+ * Release Payment To Farmer.
+ */
 export const releasePaymentToFarmer = async ({
   orderId,
   releaseMode,

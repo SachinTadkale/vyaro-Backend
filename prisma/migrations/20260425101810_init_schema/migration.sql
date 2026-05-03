@@ -2,6 +2,9 @@
 CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN', 'COMPANY', 'DELIVERY_PARTNER');
 
 -- CreateEnum
+CREATE TYPE "DocumentType" AS ENUM ('AADHAAR', 'PAN', 'DRIVING_LICENSE', 'VEHICLE_RC');
+
+-- CreateEnum
 CREATE TYPE "Gender" AS ENUM ('MALE', 'FEMALE', 'OTHER');
 
 -- CreateEnum
@@ -26,6 +29,9 @@ CREATE TYPE "TransactionType" AS ENUM ('ORDER_PAYMENT', 'ESCROW_HOLD', 'ESCROW_R
 CREATE TYPE "TransactionDirection" AS ENUM ('CREDIT', 'DEBIT');
 
 -- CreateEnum
+CREATE TYPE "ActorType" AS ENUM ('USER', 'COMPANY');
+
+-- CreateEnum
 CREATE TYPE "TransactionStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED');
 
 -- CreateEnum
@@ -38,7 +44,10 @@ CREATE TYPE "DisputeStatus" AS ENUM ('OPEN', 'UNDER_REVIEW', 'RESOLVED', 'REJECT
 CREATE TYPE "AuditEntityType" AS ENUM ('DISPUTE', 'PAYMENT');
 
 -- CreateEnum
-CREATE TYPE "DeliveryStatus" AS ENUM ('ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'FAILED', 'CANCELLED');
+CREATE TYPE "DeliveryStatus" AS ENUM ('PENDING_ASSIGNMENT', 'ASSIGNED', 'ACCEPTED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'FAILED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "AssignmentType" AS ENUM ('SYSTEM', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "OtpType" AS ENUM ('REGISTER', 'LOGIN', 'RESET_PASSWORD');
@@ -155,6 +164,8 @@ CREATE TABLE "Order" (
     "productId" TEXT NOT NULL,
     "quantity" DOUBLE PRECISION NOT NULL,
     "unitPrice" DOUBLE PRECISION NOT NULL,
+    "deliveryFee" DOUBLE PRECISION,
+    "platformFee" DOUBLE PRECISION,
     "finalPrice" DOUBLE PRECISION NOT NULL,
     "productName" TEXT NOT NULL,
     "productCategory" TEXT NOT NULL,
@@ -172,9 +183,13 @@ CREATE TABLE "Order" (
 CREATE TABLE "Delivery" (
     "deliveryId" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "assignedBy" TEXT NOT NULL,
     "partnerId" TEXT NOT NULL,
-    "status" "DeliveryStatus" NOT NULL DEFAULT 'ASSIGNED',
+    "assignedBy" "AssignmentType" NOT NULL DEFAULT 'SYSTEM',
+    "status" "DeliveryStatus" NOT NULL DEFAULT 'PENDING_ASSIGNMENT',
+    "pickupOtp" TEXT,
+    "pickupOtpVerified" BOOLEAN NOT NULL DEFAULT false,
+    "deliveryOtp" TEXT,
+    "deliveryOtpVerified" BOOLEAN NOT NULL DEFAULT false,
     "pickupTime" TIMESTAMP(3),
     "deliveryTime" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -311,7 +326,7 @@ CREATE TABLE "Transaction" (
     "orderId" TEXT,
     "userId" TEXT,
     "companyId" TEXT,
-    "actorType" TEXT NOT NULL,
+    "actorType" "ActorType" NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "amountInPaise" INTEGER NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'INR',
@@ -354,10 +369,11 @@ CREATE TABLE "Otp" (
 CREATE TABLE "Kyc" (
     "kycId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "docType" TEXT NOT NULL,
+    "docType" "DocumentType" NOT NULL,
     "docNo" TEXT NOT NULL,
     "frontImage" TEXT NOT NULL,
     "backImage" TEXT,
+    "status" "VerificationStatus" NOT NULL DEFAULT 'PENDING',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Kyc_pkey" PRIMARY KEY ("kycId")
@@ -558,6 +574,12 @@ CREATE UNIQUE INDEX "Kyc_userId_key" ON "Kyc"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Kyc_docNo_key" ON "Kyc"("docNo");
+
+-- CreateIndex
+CREATE INDEX "Kyc_userId_idx" ON "Kyc"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Kyc_userId_docType_key" ON "Kyc"("userId", "docType");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "leads_email_key" ON "leads"("email");

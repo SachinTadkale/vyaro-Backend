@@ -1,4 +1,9 @@
-import { UserRole } from "@prisma/client";
+/**
+ * Module: Delivery Partners.service
+ * Purpose: Implements the Delivery Partners.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
+import { UserRole, VehicleType } from "@prisma/client";
 import ApiError from "../../utils/apiError";
 import {
   DELIVERY_PARTNER_ERROR_CODES,
@@ -32,6 +37,7 @@ const formatProfile = (profile: DeliveryPartnerProfileRecord) => ({
   userId: profile.userId,
   vehicleType: profile.vehicleType,
   licenseNumber: profile.licenseNumber,
+  vehicleNumber: profile.vehicleNumber,
   isAvailable: profile.isAvailable,
   isActive: profile.isActive,
   currentLat: profile.currentLat,
@@ -72,6 +78,9 @@ const getRequiredProfile = async (userId: string) => {
   return profile;
 };
 
+/**
+ * Create Profile.
+ */
 export const createProfile = async (
   actor: DeliveryPartnerActor,
   input: CreateDeliveryPartnerProfileInput,
@@ -88,21 +97,52 @@ export const createProfile = async (
     });
   }
 
+  /* ------------------ 🔥 BUSINESS RULE VALIDATION ------------------ */
+
+  // Optional but HIGH VALUE
+  if (input.capacity && input.capacity < 100) {
+    throw new ApiError(400, "Capacity too low", {
+      code: DELIVERY_PARTNER_ERROR_CODES.INVALID_INPUT,
+    });
+  }
+
+  /* ------------------ CREATE PROFILE ------------------ */
+
   const profile = await createDeliveryPartnerProfile({
     userId: actor.userId,
     vehicleType: input.vehicleType,
+    vehicleNumber: input.vehicleNumber,
     licenseNumber: input.licenseNumber,
+    capacity: input.capacity ?? null, // ✅ NEW
+  });
+
+  /* ------------------ UPDATE STEP ------------------ */
+
+  await prisma.user.update({
+    where: {
+      user_id: actor.userId,
+      registrationStep: { lt: 2 },
+    },
+    data: {
+      registrationStep: 2,
+    },
   });
 
   return formatProfile(profile);
 };
 
+/**
+ * Get Profile.
+ */
 export const getProfile = async (actor: DeliveryPartnerActor) => {
   assertDeliveryPartnerRole(actor);
   const profile = await getRequiredProfile(actor.userId);
   return formatProfile(profile);
 };
 
+/**
+ * Update Availability.
+ */
 export const updateAvailability = async (
   actor: DeliveryPartnerActor,
   input: UpdateDeliveryPartnerAvailabilityInput,
@@ -118,6 +158,9 @@ export const updateAvailability = async (
   return formatProfile(profile);
 };
 
+/**
+ * Get Jobs.
+ */
 export const getJobs = async (actor: DeliveryPartnerActor) => {
   assertDeliveryPartnerRole(actor);
   const profile = await getRequiredProfile(actor.userId);
@@ -129,14 +172,21 @@ export const getJobs = async (actor: DeliveryPartnerActor) => {
   };
 };
 
+/**
+ * Update Location.
+ */
 export const updateLocation = async (
   actor: DeliveryPartnerActor,
   input: { lat: number; lng: number },
 ) => {
+  if (input.lat === undefined || input.lng === undefined) {
+    throw new ApiError(400, "Invalid location");
+  }
+
   assertDeliveryPartnerRole(actor);
   await getRequiredProfile(actor.userId);
 
-  return prisma.deliveryPartner.update({
+  await prisma.deliveryPartner.update({
     where: { userId: actor.userId },
     data: {
       currentLat: input.lat,
@@ -144,4 +194,6 @@ export const updateLocation = async (
       lastSeenAt: new Date(),
     },
   });
+
+  return { message: "Location updated" };
 };

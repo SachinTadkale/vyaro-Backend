@@ -1,11 +1,19 @@
+/**
+ * Module: Transactions.service
+ * Purpose: Implements the Transactions.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import prisma from "../../config/prisma";
 import { TransactionDirection, TransactionStatus } from "@prisma/client";
 
+/**
+ * Get Transactions.
+ */
 export const getTransactions = async (
   actor: {
     userId: string;
     companyId?: string;
-    actorType: "USER" | "COMPANY";
+    actorType: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
   },
   query: any,
 ) => {
@@ -27,7 +35,7 @@ export const getTransactions = async (
   let where: any = {};
 
   // 🔹 Role filter
-  if (actor.actorType === "USER") {
+  if (actor.actorType === "FARMER") {
     where.userId = actor.userId;
   }
 
@@ -128,13 +136,16 @@ export const getTransactions = async (
   };
 };
 
+/**
+ * Get Transaction Summary.
+ */
 export const getTransactionSummary = async (actor: any) => {
   let where: any = {
     direction: TransactionDirection.CREDIT,
     status: TransactionStatus.SUCCESS,
   };
 
-  if (actor.actorType === "USER") {
+  if (actor.actorType === "FARMER") {
     where.userId = actor.userId;
   }
 

@@ -1,3 +1,8 @@
+/**
+ * Module: Dispute.audit
+ * Purpose: Implements the Dispute.audit module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import {
   AuditEntityType,
   Prisma,
@@ -14,6 +19,9 @@ type AuditEntry = {
   metadata?: Prisma.InputJsonValue;
 };
 
+/**
+ * Create Audit Logs.
+ */
 export const createAuditLogs = async (
   db: DbClient,
   entries: AuditEntry[],

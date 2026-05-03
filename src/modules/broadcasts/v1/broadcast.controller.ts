@@ -1,7 +1,15 @@
+/**
+ * Module: Broadcast.controller
+ * Purpose: Implements the Broadcast.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import broadcastService from "../broadcast.service";
 
+/**
+ * Create Broadcast Controller.
+ */
 export const createBroadcastController = asyncHandler(
   async (req: Request, res: Response) => {
     const broadcast = await broadcastService.createBroadcast(req.user.userId, req.body);
@@ -14,6 +22,9 @@ export const createBroadcastController = asyncHandler(
   }
 );
 
+/**
+ * List Broadcasts Controller.
+ */
 export const listBroadcastsController = asyncHandler(
   async (req: Request, res: Response) => {
     const broadcasts = await broadcastService.listBroadcasts({
@@ -32,6 +43,9 @@ export const listBroadcastsController = asyncHandler(
   }
 );
 
+/**
+ * Update Broadcast Controller.
+ */
 export const updateBroadcastController = asyncHandler(
   async (req: Request, res: Response) => {
     const broadcast = await broadcastService.updateBroadcast(req.params.id, req.body);
@@ -44,6 +58,9 @@ export const updateBroadcastController = asyncHandler(
   }
 );
 
+/**
+ * Delete Broadcast Controller.
+ */
 export const deleteBroadcastController = asyncHandler(
   async (req: Request, res: Response) => {
     const broadcast = await broadcastService.deleteBroadcast(req.params.id);
@@ -56,6 +73,9 @@ export const deleteBroadcastController = asyncHandler(
   }
 );
 
+/**
+ * Get Active Broadcasts Controller.
+ */
 export const getActiveBroadcastsController = asyncHandler(
   async (req: Request, res: Response) => {
     const broadcasts = await broadcastService.getActiveBroadcasts(req.user);

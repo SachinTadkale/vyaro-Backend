@@ -1,11 +1,20 @@
+/**
+ * Module: Delivery.routes
+ * Purpose: Implements the Delivery.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { createRateLimiter } from "../../../middleware/rateLimit.middleware";
 import { requireDeliveryAccess } from "../../../middleware/rbac.middleware";
 import {
+  acceptJobController,
   assignDeliveryController,
   autoAssignDeliveryController,
+  getActiveController,
+  getDashboardController,
   getDeliveryController,
+  getJobsController,
   updateDeliveryStatusController,
 } from "./delivery.controller";
 
@@ -59,6 +68,34 @@ router.get(
   requireDeliveryAccess("DELIVERY_PARTNER", "COMPANY", "ADMIN"),
   deliveryReadLimiter,
   getDeliveryController,
+);
+
+router.get(
+  "/jobs",
+  authMiddleware,
+  requireDeliveryAccess("DELIVERY_PARTNER"),
+  getJobsController,
+);
+
+router.post(
+  "/accept/:id",
+  authMiddleware,
+  requireDeliveryAccess("DELIVERY_PARTNER"),
+  acceptJobController,
+);
+
+router.get(
+  "/active",
+  authMiddleware,
+  requireDeliveryAccess("DELIVERY_PARTNER"),
+  getActiveController,
+);
+
+router.get(
+  "/dashboard",
+  authMiddleware,
+  requireDeliveryAccess("DELIVERY_PARTNER"),
+  getDashboardController,
 );
 
 export default router;

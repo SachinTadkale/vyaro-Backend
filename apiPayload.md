@@ -265,7 +265,7 @@ Sample success response:
       "verificationStatus": "PENDING",
       "kyc": {
         "kycId": "kyc-id",
-        "docType": "AADHAR",
+        "docType": "AADHAAR",
         "docNo": "123412341234"
       }
     }
@@ -1283,7 +1283,7 @@ Base path: `/api/v1/kyc-records`
 Form-data:
 
 ```text
-docType: AADHAR
+docType: AADHAAR
 docNo: 123412341234
 frontImage: <file>
 backImage: <file>
@@ -1298,7 +1298,7 @@ Sample success response:
   "data": {
     "kycId": "kyc-id",
     "userId": "user-id",
-    "docType": "AADHAR",
+    "docType": "AADHAAR",
     "docNo": "123412341234",
     "frontImage": "https://res.cloudinary.com/demo/front.jpg",
     "backImage": "https://res.cloudinary.com/demo/back.jpg"
@@ -2381,7 +2381,7 @@ Sample success response:
   "message": "Dashboard access granted",
   "user": {
     "userId": "user-id",
-    "role": "USER"
+    "role": "FARMER"
   }
 }
 ```
@@ -2409,7 +2409,7 @@ Sample success response:
   "message": "KYC submitted successfully",
   "data": {
     "kycId": "kyc-id",
-    "docType": "AADHAR",
+    "docType": "AADHAAR",
     "docNo": "123412341234"
   }
 }

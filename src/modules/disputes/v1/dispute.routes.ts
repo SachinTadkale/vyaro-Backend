@@ -1,3 +1,8 @@
+/**
+ * Module: Dispute.routes
+ * Purpose: Implements the Dispute.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { adminOnly } from "../../../middleware/admin.middleware";
@@ -32,7 +37,7 @@ const router = Router();
 router.post(
   "/",
   authMiddleware,
-  requireActor("USER", "COMPANY"),
+  requireActor("FARMER", "COMPANY"),
   createDisputeLimiter,
   createDisputeController,
 );

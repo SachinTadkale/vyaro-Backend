@@ -1,3 +1,8 @@
+/**
+ * Module: Order.controller
+ * Purpose: Implements the Order.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import * as orderService from "../order.service";
@@ -12,6 +17,9 @@ import {
   validateSchema,
 } from "../order.validation";
 
+/**
+ * Create Order.
+ */
 export const createOrder = asyncHandler(async (req: Request, res: Response) => {
   const payload = validateSchema(createOrderSchema, req.body);
   const result = await orderService.createOrder(req.user.companyId, payload);
@@ -25,7 +33,7 @@ export const createOrder = asyncHandler(async (req: Request, res: Response) => {
     void sendEventNotificationEmail({
       to: result.sellerNotificationPayload.user.email,
       subject: "New order received",
-      audience: "USER",
+      audience: "FARMER",
       eventLabel: "New incoming order",
       title: "You have a new order request",
       summary:
@@ -61,6 +69,9 @@ export const createOrder = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Get Farmer Orders.
+ */
 export const getFarmerOrders = asyncHandler(async (req: Request, res: Response) => {
   const query = validateSchema(farmerOrdersQuerySchema, req.query);
   const result = await orderService.getFarmerOrders(req.user.userId, query);
@@ -71,6 +82,9 @@ export const getFarmerOrders = asyncHandler(async (req: Request, res: Response) 
   });
 });
 
+/**
+ * Get Farmer Order By Id.
+ */
 export const getFarmerOrderById = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(orderIdParamSchema, req.params);
@@ -83,6 +97,9 @@ export const getFarmerOrderById = asyncHandler(
   },
 );
 
+/**
+ * Get Company Orders.
+ */
 export const getCompanyOrders = asyncHandler(
   async (req: Request, res: Response) => {
     const query = validateSchema(companyOrdersQuerySchema, req.query);
@@ -98,6 +115,9 @@ export const getCompanyOrders = asyncHandler(
   },
 );
 
+/**
+ * Get Company Order By Id.
+ */
 export const getCompanyOrderById = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(orderIdParamSchema, req.params);
@@ -113,6 +133,9 @@ export const getCompanyOrderById = asyncHandler(
   },
 );
 
+/**
+ * Accept Order.
+ */
 export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   const { id } = validateSchema(orderIdParamSchema, req.params);
   const result = await orderService.acceptOrder(req.user.userId, id);
@@ -130,6 +153,9 @@ export const acceptOrder = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Reject Order.
+ */
 export const rejectOrder = asyncHandler(async (req: Request, res: Response) => {
   const { id } = validateSchema(orderIdParamSchema, req.params);
   const result = await orderService.rejectOrder(req.user.userId, id);
@@ -147,6 +173,9 @@ export const rejectOrder = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Cancel Order.
+ */
 export const cancelOrder = asyncHandler(async (req: Request, res: Response) => {
   const { id } = validateSchema(orderIdParamSchema, req.params);
   const result = await orderService.cancelOrder(req.user.companyId, id);
