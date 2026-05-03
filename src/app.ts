@@ -20,11 +20,8 @@ const API_PREFIX = "/api/v1";
 const expressApp = express();
 const parseAllowedOrigins = () =>
   [
-    process.env.APP_BASE_URL,
-    process.env.USER_APP_URL,
-    process.env.COMPANY_APP_URL,
-    process.env.DELIVERY_APP_URL,
-    process.env.ADMIN_APP_URL,
+    process.env.WEB_APP_URL_DEV,
+    process.env.WEB_APP_URL_PROD,
     ...(process.env.CORS_ALLOWED_ORIGINS?.split(",") ?? []),
   ]
     .map((origin) => origin?.trim())
