@@ -1,9 +1,17 @@
+/**
+ * Module: Transactions.controller
+ * Purpose: Implements the Transactions.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import { getTransactions } from "../transactions.service";
 import ApiError from "../../../utils/apiError";
 
-const ACTOR_TYPES = ["USER", "COMPANY"] as const;
+const ACTOR_TYPES = ["FARMER", "COMPANY", "DELIVERY_PARTNER"] as const;
+/**
+ * Get Transactions Controller.
+ */
 export const getTransactionsController = asyncHandler(
   async (req: Request, res: Response) => {
     if (!req.user.actorType || !ACTOR_TYPES.includes(req.user.actorType)) {

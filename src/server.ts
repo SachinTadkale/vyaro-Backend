@@ -1,10 +1,14 @@
+/**
+ * Module: Backend Server Bootstrap
+ * Purpose: Loads environment configuration and starts the Express HTTP server.
+ */
 import dotenv from "dotenv";
 dotenv.config();
 
 import app from "./app";
 
-const PORT = process.env.PORT || 5000;
+const serverPort = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port http://localhost:${PORT}`);
+app.listen(serverPort, () => {
+  console.log(`Server running on port http://localhost:${serverPort}`);
 });

@@ -1,3 +1,8 @@
+/**
+ * Module: Kyc.routes
+ * Purpose: Implements the Kyc.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import { uploadKyc } from "./kyc.controller";
 import { authMiddleware } from "../../../middleware/auth.middleware";

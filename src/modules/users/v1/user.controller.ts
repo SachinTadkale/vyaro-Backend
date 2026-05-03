@@ -1,8 +1,16 @@
+/**
+ * Module: User.controller
+ * Purpose: Implements the User.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Response } from "express";
 import ApiError from "../../../utils/apiError";
 import asyncHandler from "../../../utils/asyncHandler";
 import { uploadKycService } from "../user.service";
 
+/**
+ * Upload Kyc.
+ */
 export const uploadKYC = asyncHandler(async (req: any, res: Response) => {
   const userId = req.user.userId;
 

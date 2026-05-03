@@ -1,3 +1,8 @@
+/**
+ * Module: Dispute.repository
+ * Purpose: Implements the Dispute.repository module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import {
   DisputeStatus,
   OrderStatus,
@@ -8,6 +13,9 @@ import prisma from "../../config/prisma";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
+/**
+ * Dispute Details Select.
+ */
 export const disputeDetailsSelect = {
   id: true,
   orderId: true,
@@ -54,6 +62,9 @@ export const disputeDetailsSelect = {
   },
 } satisfies Prisma.DisputeSelect;
 
+/**
+ * Dispute Order Context Select.
+ */
 export const disputeOrderContextSelect = {
   orderId: true,
   companyId: true,
@@ -87,17 +98,26 @@ export type DisputeOrderContext = Prisma.OrderGetPayload<{
 
 const getDb = (db?: DbClient) => db ?? prisma;
 
+/**
+ * Find Order For Dispute.
+ */
 export const findOrderForDispute = (orderId: string, db?: DbClient) =>
   getDb(db).order.findUnique({
     where: { orderId },
     select: disputeOrderContextSelect,
   });
 
+/**
+ * Count Disputes For Order.
+ */
 export const countDisputesForOrder = (orderId: string, db?: DbClient) =>
   getDb(db).dispute.count({
     where: { orderId },
   });
 
+/**
+ * Count Disputes Raised By Actor.
+ */
 export const countDisputesRaisedByActor = (
   raisedBy: string,
   raisedByActorType: string,
@@ -110,6 +130,9 @@ export const countDisputesRaisedByActor = (
     },
   });
 
+/**
+ * Find Active Dispute By Order Id.
+ */
 export const findActiveDisputeByOrderId = (orderId: string, db?: DbClient) =>
   getDb(db).dispute.findFirst({
     where: {
@@ -121,6 +144,9 @@ export const findActiveDisputeByOrderId = (orderId: string, db?: DbClient) =>
     select: disputeDetailsSelect,
   });
 
+/**
+ * Create Dispute Record.
+ */
 export const createDisputeRecord = (
   data: {
     orderId: string;
@@ -136,6 +162,9 @@ export const createDisputeRecord = (
     select: disputeDetailsSelect,
   });
 
+/**
+ * Update Payment To Frozen.
+ */
 export const updatePaymentToFrozen = (orderId: string, db?: DbClient) =>
   getDb(db).payment.update({
     where: { orderId },
@@ -149,6 +178,9 @@ export const updatePaymentToFrozen = (orderId: string, db?: DbClient) =>
     },
   });
 
+/**
+ * Update Order To Disputed.
+ */
 export const updateOrderToDisputed = (orderId: string, db?: DbClient) =>
   getDb(db).order.update({
     where: { orderId },
@@ -163,12 +195,18 @@ export const updateOrderToDisputed = (orderId: string, db?: DbClient) =>
     },
   });
 
+/**
+ * Find Dispute By Id.
+ */
 export const findDisputeById = (id: string, db?: DbClient) =>
   getDb(db).dispute.findUnique({
     where: { id },
     select: disputeDetailsSelect,
   });
 
+/**
+ * Update Dispute To Resolved.
+ */
 export const updateDisputeToResolved = (
   params: {
     id: string;
@@ -189,6 +227,9 @@ export const updateDisputeToResolved = (
     select: disputeDetailsSelect,
   });
 
+/**
+ * Update Payment After Resolution.
+ */
 export const updatePaymentAfterResolution = (
   params: {
     orderId: string;
@@ -217,6 +258,9 @@ export const updatePaymentAfterResolution = (
     },
   });
 
+/**
+ * Update Order After Resolution.
+ */
 export const updateOrderAfterResolution = (
   params: {
     orderId: string;

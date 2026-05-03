@@ -1,3 +1,8 @@
+/**
+ * Module: Product.routes
+ * Purpose: Implements the Product.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import {
   createProduct,

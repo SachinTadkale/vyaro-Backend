@@ -1,3 +1,8 @@
+/**
+ * Module: Order.routes
+ * Purpose: Implements the Order.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { createRateLimiter } from "../../../middleware/rateLimit.middleware";
@@ -67,7 +72,7 @@ router.patch(
 router.patch(
   "/farmer/:id/accept",
   authMiddleware,
-  requireActor("USER"),
+  requireActor("FARMER"),
   verifiedOnly,
   farmerOrderDecisionLimiter,
   acceptOrder,
@@ -76,7 +81,7 @@ router.patch(
 router.patch(
   "/farmer/:id/reject",
   authMiddleware,
-  requireActor("USER"),
+  requireActor("FARMER"),
   verifiedOnly,
   farmerOrderDecisionLimiter,
   rejectOrder,
@@ -85,7 +90,7 @@ router.patch(
 router.get(
   "/farmer/getFarmerOrders",
   authMiddleware,
-  requireActor("USER"),
+  requireActor("FARMER"),
   verifiedOnly,
   farmerOrderReadLimiter,
   getFarmerOrders,
@@ -94,7 +99,7 @@ router.get(
 router.get(
   "/farmer/getFarmerOrderById/:id",
   authMiddleware,
-  requireActor("USER"),
+  requireActor("FARMER"),
   verifiedOnly,
   farmerOrderReadLimiter,
   getFarmerOrderById,

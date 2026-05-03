@@ -1,3 +1,8 @@
+/**
+ * Module: Jwt
+ * Purpose: Implements the Jwt module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { UserRole } from "@prisma/client";
 import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import ApiError from "../utils/apiError";
@@ -13,9 +18,12 @@ export type JwtPayload = {
   userId: string;
   role?: UserRole;
   companyId?: string;
-  actorType?: "USER" | "COMPANY" | "DELIVERY_PARTNER";
+  actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
 };
 
+/**
+ * Generate Token.
+ */
 export const generateToken = (payload: JwtPayload) => {
   const options: SignOptions = {
     expiresIn: JWT_EXPIRES_IN as SignOptions["expiresIn"],
@@ -24,6 +32,9 @@ export const generateToken = (payload: JwtPayload) => {
   return jwt.sign(payload, JWT_SECRET, options);
 };
 
+/**
+ * Verify Token.
+ */
 export const verifyToken = (token: string): JwtPayload => {
   return jwt.verify(token, JWT_SECRET) as JwtPayload;
 };

@@ -1,3 +1,8 @@
+/**
+ * Module: Admin Auth.controller
+ * Purpose: Implements the Admin Auth.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import * as adminAuthService from "../auth.service";
 import asyncHandler from "../../../utils/asyncHandler";
@@ -10,6 +15,9 @@ import {
   validateSchema,
 } from "../admin-auth.validation";
 
+/**
+ * Login Admin Controller.
+ */
 export const loginAdminController = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(loginAdminSchema, req.body);
@@ -22,6 +30,9 @@ export const loginAdminController = asyncHandler(
   }
 );
 
+/**
+ * Forgot Password Admin Controller.
+ */
 export const forgotPasswordAdminController = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(forgotPasswordAdminSchema, req.body);
@@ -40,6 +51,9 @@ export const forgotPasswordAdminController = asyncHandler(
   }
 );
 
+/**
+ * Reset Password Admin Controller.
+ */
 export const resetPasswordAdminController = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(resetPasswordAdminSchema, req.body);

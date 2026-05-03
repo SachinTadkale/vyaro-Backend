@@ -1,3 +1,8 @@
+/**
+ * Module: Payment.controller
+ * Purpose: Implements the Payment.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import {
@@ -18,6 +23,9 @@ import {
   verifyPaymentSchema,
 } from "../payment.validation";
 
+/**
+ * Create Payment Order Controller.
+ */
 export const createPaymentOrderController = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(createPaymentOrderSchema, {
@@ -37,6 +45,9 @@ export const createPaymentOrderController = asyncHandler(
   },
 );
 
+/**
+ * Verify Payment Controller.
+ */
 export const verifyPaymentController = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(verifyPaymentSchema, req.body);
@@ -56,6 +67,9 @@ export const verifyPaymentController = asyncHandler(
   },
 );
 
+/**
+ * Get Payment Details Controller.
+ */
 export const getPaymentDetailsController = asyncHandler(
   async (req: Request, res: Response) => {
     const { orderId } = validateSchema(paymentOrderParamSchema, req.params);
@@ -68,6 +82,9 @@ export const getPaymentDetailsController = asyncHandler(
   },
 );
 
+/**
+ * Release Payment Controller.
+ */
 export const releasePaymentController = asyncHandler(
   async (req: Request, res: Response) => {
     const { orderId } = validateSchema(releasePaymentParamSchema, req.params);
@@ -82,6 +99,9 @@ export const releasePaymentController = asyncHandler(
   },
 );
 
+/**
+ * Razorpay Webhook Controller.
+ */
 export const razorpayWebhookController = asyncHandler(
   async (req: Request, res: Response) => {
     const rawBody = Buffer.isBuffer(req.body)

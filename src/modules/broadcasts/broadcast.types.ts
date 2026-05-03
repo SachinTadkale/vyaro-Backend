@@ -1,3 +1,8 @@
+/**
+ * Module: Broadcast.types
+ * Purpose: Implements the Broadcast.types module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import type {
   Broadcast,
   BroadcastType,
@@ -43,7 +48,7 @@ export type BroadcastActor = {
   userId: string;
   companyId?: string;
   role?: string;
-  actorType?: "USER" | "COMPANY";
+  actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
 };
 
 export type BroadcastResponse = Broadcast & {

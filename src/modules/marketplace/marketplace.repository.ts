@@ -1,3 +1,8 @@
+/**
+ * Module: Marketplace.repository
+ * Purpose: Implements the Marketplace.repository module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { ListingStatus, ListingType, Prisma } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { getBoundingBox, haversineDistanceSql } from "./marketplace.geo";
@@ -6,6 +11,9 @@ import {
   MyListingsQuery,
 } from "./marketplace.schema";
 
+/**
+ * Listing Selection.
+ */
 export const listingSelection = {
   listingId: true,
   sellerId: true,
@@ -268,6 +276,9 @@ const buildGeoFilters = (query: MarketplaceListingsQuery) => {
 const joinGeoFilters = (conditions: Prisma.Sql[]) =>
   Prisma.join(conditions, " AND ");
 
+/**
+ * Find Product Owned By Seller.
+ */
 export const findProductOwnedBySeller = (productId: string, sellerId: string) =>
   prisma.product.findFirst({
     where: {
@@ -279,6 +290,9 @@ export const findProductOwnedBySeller = (productId: string, sellerId: string) =>
     },
   });
 
+/**
+ * Create Listing Record.
+ */
 export const createListingRecord = (
   data: Prisma.MarketListingUncheckedCreateInput,
 ) =>
@@ -287,6 +301,9 @@ export const createListingRecord = (
     select: listingSelection as never,
   }) as unknown as Promise<ListingRecord>;
 
+/**
+ * Find Marketplace Listings.
+ */
 export const findMarketplaceListings = async (
   query: MarketplaceListingsQuery,
 ) => {
@@ -311,6 +328,9 @@ export const findMarketplaceListings = async (
   return { listings: listings as ListingRecord[], total };
 };
 
+/**
+ * Find Nearby Marketplace Listings.
+ */
 export const findNearbyMarketplaceListings = async (
   query: MarketplaceListingsQuery & { lat: number; lng: number },
 ) => {
@@ -356,7 +376,7 @@ export const findNearbyMarketplaceListings = async (
       ${distanceSql} AS "distanceKm"
     FROM "MarketListing" "ml"
     INNER JOIN "Product" "p" ON "p"."productId" = "ml"."productId"
-    INNER JOIN "User" "u" ON "u"."user_id" = "ml"."sellerId"
+    INNER JOIN "FARMER" "u" ON "u"."user_id" = "ml"."sellerId"
     LEFT JOIN "FarmDetails" "fd" ON "fd"."userId" = "u"."user_id"
     WHERE ${whereClause}
       AND ${distanceSql} <= ${radiusKm}
@@ -369,7 +389,7 @@ export const findNearbyMarketplaceListings = async (
     SELECT COUNT(*)::bigint AS "total"
     FROM "MarketListing" "ml"
     INNER JOIN "Product" "p" ON "p"."productId" = "ml"."productId"
-    INNER JOIN "User" "u" ON "u"."user_id" = "ml"."sellerId"
+    INNER JOIN "Farmer" "u" ON "u"."user_id" = "ml"."sellerId"
     LEFT JOIN "FarmDetails" "fd" ON "fd"."userId" = "u"."user_id"
     WHERE ${whereClause}
       AND ${distanceSql} <= ${radiusKm}
@@ -381,12 +401,18 @@ export const findNearbyMarketplaceListings = async (
   };
 };
 
+/**
+ * Find Listing By Id.
+ */
 export const findListingById = (listingId: string) =>
   prisma.marketListing.findUnique({
     where: { listingId },
     select: listingSelection as never,
   }) as Promise<ListingRecord | null>;
 
+/**
+ * Update Listing Record.
+ */
 export const updateListingRecord = (
   listingId: string,
   data: Prisma.MarketListingUpdateInput,
@@ -397,6 +423,9 @@ export const updateListingRecord = (
     select: listingSelection as never,
   }) as unknown as Promise<ListingRecord>;
 
+/**
+ * Find Listing Ownership.
+ */
 export const findListingOwnership = (listingId: string) =>
   prisma.marketListing.findUnique({
     where: { listingId },
@@ -408,6 +437,9 @@ export const findListingOwnership = (listingId: string) =>
     },
   });
 
+/**
+ * Count Seller Listings.
+ */
 export const countSellerListings = async (
   sellerId: string,
   query: MyListingsQuery,

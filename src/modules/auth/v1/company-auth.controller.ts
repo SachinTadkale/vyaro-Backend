@@ -1,3 +1,8 @@
+/**
+ * Module: Company Auth.controller
+ * Purpose: Implements the Company Auth.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import * as service from "../auth.service";
 import cloudinary from "../../../config/cloudinary";
@@ -11,6 +16,9 @@ import {
   validateSchema,
 } from "../company-auth.validation";
 
+/**
+ * Register Company.
+ */
 export const registerCompany = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(registerCompanySchema, req.body);
@@ -23,6 +31,9 @@ export const registerCompany = asyncHandler(
   },
 );
 
+/**
+ * Upload Documents.
+ */
 export const uploadDocuments = asyncHandler(
   async (req: Request, res: Response) => {
     const { companyId } = validateSchema(uploadCompanyDocumentsSchema, req.body);
@@ -70,6 +81,9 @@ export const uploadDocuments = asyncHandler(
   },
 );
 
+/**
+ * Login Company.
+ */
 export const loginCompany = asyncHandler(
   async (req: Request, res: Response) => {
     const { registrationNo, password } = validateSchema(companyLoginSchema, req.body);
@@ -83,6 +97,9 @@ export const loginCompany = asyncHandler(
   },
 );
 
+/**
+ * Logout Company.
+ */
 export const logoutCompany = asyncHandler(
   async (req: Request, res: Response) => {
     const result = await service.logoutCompany();

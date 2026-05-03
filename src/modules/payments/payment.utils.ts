@@ -1,8 +1,19 @@
+/**
+ * Module: Payment.utils
+ * Purpose: Implements the Payment.utils module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import crypto from "crypto";
 import ApiError from "../../utils/apiError";
 
+/**
+ * Default Currency.
+ */
 export const DEFAULT_CURRENCY = "INR";
 
+/**
+ * To Paise.
+ */
 export const toPaise = (amount: number) => {
   const paise = Math.round(amount * 100);
 
@@ -15,11 +26,17 @@ export const toPaise = (amount: number) => {
   return paise;
 };
 
+/**
+ * Build Basic Auth Header.
+ */
 export const buildBasicAuthHeader = (keyId: string, keySecret: string) => {
   const token = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
   return `Basic ${token}`;
 };
 
+/**
+ * Verify Checkout Signature.
+ */
 export const verifyCheckoutSignature = ({
   razorpayOrderId,
   razorpayPaymentId,
@@ -46,6 +63,9 @@ export const verifyCheckoutSignature = ({
   );
 };
 
+/**
+ * Verify Webhook Signature.
+ */
 export const verifyWebhookSignature = ({
   payload,
   signature,
@@ -67,6 +87,9 @@ export const verifyWebhookSignature = ({
   return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
 };
 
+/**
+ * Parse Webhook Payload.
+ */
 export const parseWebhookPayload = <T>(payload: Buffer) => {
   try {
     return JSON.parse(payload.toString("utf8")) as T;
@@ -77,6 +100,9 @@ export const parseWebhookPayload = <T>(payload: Buffer) => {
   }
 };
 
+/**
+ * Build Receipt.
+ */
 export const buildReceipt = (orderId: string) => {
   const compact = orderId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 28);
   return `farmzy_${compact}`;

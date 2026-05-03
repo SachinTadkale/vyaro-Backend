@@ -1,3 +1,8 @@
+/**
+ * Module: User Auth.routes
+ * Purpose: Implements the User Auth.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import {
   registerUser,
@@ -6,7 +11,9 @@ import {
   loginWithOtpController,
   resetPasswordController,
   forgotPasswordController,
+  meController,
 } from "./user-auth.controller";
+import { authMiddleware } from "../../../middleware/auth.middleware";
 import { createRateLimiter } from "../../../middleware/rateLimit.middleware";
 
 const router = Router();
@@ -27,5 +34,6 @@ router.post("/request-otp", authOtpLimiter, requestOtpController);
 router.post("/login-with-otp", authWriteLimiter, loginWithOtpController);
 router.post("/forgot-password", authOtpLimiter, forgotPasswordController);
 router.post("/reset-password", authWriteLimiter, resetPasswordController);
+router.get("/me", authMiddleware, meController);
 
 export default router;

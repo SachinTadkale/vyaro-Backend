@@ -1,9 +1,17 @@
+/**
+ * Module: Bank.controller
+ * Purpose: Implements the Bank.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import ApiError from "../../../utils/apiError";
 import * as bankService from "../bank.service";
 import { bankSchema } from "../bank.validation";
 
+/**
+ * Add Bank Details.
+ */
 export const addBankDetails = asyncHandler(async (req: Request, res: Response) => {
   const result = bankSchema.safeParse(req.body);
 

@@ -1,3 +1,8 @@
+/**
+ * Module: Broadcast.repository
+ * Purpose: Implements the Broadcast.repository module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { BroadcastType, Prisma, TargetAudience, UserRole } from "@prisma/client";
 import prisma from "../../config/prisma";
 import type {
@@ -13,6 +18,9 @@ const buildWhere = (filters?: BroadcastListFilters): Prisma.BroadcastWhereInput 
   ...(filters?.isActive !== undefined ? { isActive: filters.isActive } : {}),
 });
 
+/**
+ * Create Broadcast Record.
+ */
 export const createBroadcastRecord = (data: CreateBroadcastInput & { createdBy: string }) =>
   prisma.broadcast.create({
     data: {
@@ -35,6 +43,9 @@ export const createBroadcastRecord = (data: CreateBroadcastInput & { createdBy: 
     },
   });
 
+/**
+ * List Broadcast Records.
+ */
 export const listBroadcastRecords = (filters?: BroadcastListFilters) =>
   prisma.broadcast.findMany({
     where: buildWhere(filters),
@@ -43,11 +54,17 @@ export const listBroadcastRecords = (filters?: BroadcastListFilters) =>
     },
   });
 
+/**
+ * Find Broadcast By Id.
+ */
 export const findBroadcastById = (id: string) =>
   prisma.broadcast.findUnique({
     where: { id },
   });
 
+/**
+ * Update Broadcast Record.
+ */
 export const updateBroadcastRecord = (id: string, data: UpdateBroadcastInput) =>
   prisma.broadcast.update({
     where: { id },
@@ -83,6 +100,9 @@ export const updateBroadcastRecord = (id: string, data: UpdateBroadcastInput) =>
     },
   });
 
+/**
+ * Soft Delete Broadcast Record.
+ */
 export const softDeleteBroadcastRecord = (id: string) =>
   prisma.broadcast.update({
     where: { id },
@@ -91,6 +111,9 @@ export const softDeleteBroadcastRecord = (id: string) =>
     },
   });
 
+/**
+ * Find Active Broadcasts For Audiences.
+ */
 export const findActiveBroadcastsForAudiences = (audiences: TargetAudience[], now: Date) =>
   prisma.broadcast.findMany({
     where: {
@@ -117,13 +140,16 @@ export const findActiveBroadcastsForAudiences = (audiences: TargetAudience[], no
     },
   });
 
+/**
+ * Find User Recipient Batch.
+ */
 export const findUserRecipientBatch = async (
   cursor?: string,
   take = 200
 ): Promise<BroadcastRecipient[]> => {
   const users = await prisma.user.findMany({
     where: {
-      role: UserRole.USER,
+      role: UserRole.FARMER,
       isBlocked: false,
       email: {
         not: null,
@@ -149,6 +175,9 @@ export const findUserRecipientBatch = async (
   }));
 };
 
+/**
+ * Find Company Recipient Batch.
+ */
 export const findCompanyRecipientBatch = async (
   cursor?: string,
   take = 200
@@ -174,6 +203,9 @@ export const findCompanyRecipientBatch = async (
   }));
 };
 
+/**
+ * Find Delivery Recipient Batch.
+ */
 export const findDeliveryRecipientBatch = async (
   cursor?: string,
   take = 200

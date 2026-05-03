@@ -1,3 +1,8 @@
+/**
+ * Module: Encryption
+ * Purpose: Implements the Encryption module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import crypto from "crypto";
 import ApiError from "./apiError";
 
@@ -27,6 +32,9 @@ const resolveEncryptionKey = () => {
   throw new ApiError(500, "Encryption service not configured");
 };
 
+/**
+ * Encrypt.
+ */
 export const encrypt = (text: string) => {
   const encryptionKey = resolveEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -39,6 +47,9 @@ export const encrypt = (text: string) => {
   };
 };
 
+/**
+ * Decrypt.
+ */
 export const decrypt = (encryptedData: string, iv: string) => {
   const encryptionKey = resolveEncryptionKey();
   const decipher = crypto.createDecipheriv(
@@ -55,6 +66,9 @@ export const decrypt = (encryptedData: string, iv: string) => {
   return decrypted.toString("utf8");
 };
 
+/**
+ * Mask Sensitive Value.
+ */
 export const maskSensitiveValue = (value: string, visibleDigits = 4) => {
   const trimmedValue = value.trim();
   const visibleSegment = trimmedValue.slice(-visibleDigits);

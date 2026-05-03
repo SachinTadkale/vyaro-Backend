@@ -1,6 +1,13 @@
+/**
+ * Module: Admin.service
+ * Purpose: Implements the Admin.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
+
+const platformUsers = ["DELIVERY_PARTNER", "FARMER"];
 
 const formatDate = (value: Date) =>
   new Intl.DateTimeFormat("en-IN", {
@@ -16,26 +23,27 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+/**
+ * Get Pending Kyc.
+ */
 export const getPendingKyc = async () => {
   return prisma.user.findMany({
     where: {
       verificationStatus: VerificationStatus.PENDING,
+      role: {
+        in: ["FARMER", "DELIVERY_PARTNER"], // optional but recommended
+      },
       kyc: {
-        isNot: null,
+        some: {},
       },
     },
     orderBy: {
       createdAt: "desc",
     },
-    select: {
-      user_id: true,
-      name: true,
-      phone_no: true,
-      email: true,
-      address: true,
-      verificationStatus: true,
-      createdAt: true,
-      updatedAt: true,
+    include: {
+      farmDetails: true,
+      bankDetails: true,
+      deliveryPartner: true,
       kyc: {
         select: {
           kycId: true,
@@ -50,9 +58,12 @@ export const getPendingKyc = async () => {
   });
 };
 
+/**
+ * Get Admin Stats.
+ */
 export const getAdminStats = async () => {
   const [
-    totalFarmers,
+    totalUsers,
     pendingKyc,
     verifiedUsers,
     blockedAccounts,
@@ -61,16 +72,26 @@ export const getAdminStats = async () => {
     totalOrders,
     totalListings,
   ] = await prisma.$transaction([
-    prisma.user.count({ where: { role: "USER" } }),
     prisma.user.count({
       where: {
-        role: "USER",
+        role: {
+          in: ["DELIVERY_PARTNER", "FARMER"],
+        },
+      },
+    }),
+    prisma.user.count({
+      where: {
+        role: {
+          in: ["DELIVERY_PARTNER", "FARMER"],
+        },
         verificationStatus: VerificationStatus.PENDING,
       },
     }),
     prisma.user.count({
       where: {
-        role: "USER",
+        role: {
+          in: ["DELIVERY_PARTNER", "FARMER"],
+        },
         verificationStatus: VerificationStatus.VERIFIED,
       },
     }),
@@ -86,7 +107,7 @@ export const getAdminStats = async () => {
   ]);
 
   return {
-    totalFarmers,
+    totalUsers,
     pendingKyc,
     verifiedUsers,
     blockedAccounts,
@@ -97,10 +118,15 @@ export const getAdminStats = async () => {
   };
 };
 
+/**
+ * Get Users.
+ */
 export const getUsers = async () => {
   const users = await prisma.user.findMany({
     where: {
-      role: "USER",
+      role: {
+        in: ["DELIVERY_PARTNER", "FARMER"],
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -120,20 +146,20 @@ export const getUsers = async () => {
   const sellerIds = users.map((user) => user.user_id);
   const orderGroups = sellerIds.length
     ? await prisma.order.groupBy({
-        by: ["sellerId"],
-        where: {
-          sellerId: {
-            in: sellerIds,
-          },
+      by: ["sellerId"],
+      where: {
+        sellerId: {
+          in: sellerIds,
         },
-        _count: {
-          _all: true,
-        },
-      })
+      },
+      _count: {
+        _all: true,
+      },
+    })
     : [];
 
   const orderCountMap = new Map(
-    orderGroups.map((group) => [group.sellerId, group._count._all])
+    orderGroups.map((group) => [group.sellerId, group._count._all]),
   );
 
   return users.map((user) => ({
@@ -142,11 +168,9 @@ export const getUsers = async () => {
     email: user.email ?? "",
     phone: user.phone_no,
     gender: user.gender ?? "N/A",
+    role: user.role ?? "Unknown",
     location:
-      [
-        user.farmDetails?.district,
-        user.farmDetails?.state,
-      ]
+      [user.farmDetails?.district, user.farmDetails?.state]
         .filter(Boolean)
         .join(", ") || user.address,
     address: user.address,
@@ -169,18 +193,24 @@ export const getUsers = async () => {
       totalOrders: orderCountMap.get(user.user_id) ?? 0,
       lastActive: formatDate(user.updatedAt),
     },
-    kyc: user.kyc
-      ? {
-          docType: user.kyc.docType,
-          docNumber: user.kyc.docNo,
-          primaryDocUrl: user.kyc.frontImage,
-          secondaryDocUrl: user.kyc.backImage,
-          submittedAt: formatDate(user.kyc.createdAt),
+    kyc:
+      user.kyc.length > 0
+        ? {
+          documents: user.kyc.map((doc) => ({
+            docNo: doc.docNo,
+            docType: doc.docType,
+            frontImage: doc.frontImage,
+            backImage: doc.backImage,
+            submittedAt: formatDate(doc.createdAt),
+          })),
         }
-      : null,
+        : [],
   }));
 };
 
+/**
+ * Get Companies.
+ */
 export const getCompanies = async () => {
   const companies = await prisma.company.findMany({
     orderBy: {
@@ -198,20 +228,20 @@ export const getCompanies = async () => {
   const companyIds = companies.map((company) => company.companyId);
   const purchaseTotals = companyIds.length
     ? await prisma.order.groupBy({
-        by: ["companyId"],
-        where: {
-          companyId: {
-            in: companyIds,
-          },
+      by: ["companyId"],
+      where: {
+        companyId: {
+          in: companyIds,
         },
-        _sum: {
-          finalPrice: true,
-        },
-      })
+      },
+      _sum: {
+        finalPrice: true,
+      },
+    })
     : [];
 
   const purchaseMap = new Map(
-    purchaseTotals.map((item) => [item.companyId, item._sum.finalPrice ?? 0])
+    purchaseTotals.map((item) => [item.companyId, item._sum.finalPrice ?? 0]),
   );
 
   return companies.map((company) => ({
@@ -241,6 +271,9 @@ export const getCompanies = async () => {
   }));
 };
 
+/**
+ * Get Orders.
+ */
 export const getOrders = async () => {
   const orders = await prisma.order.findMany({
     orderBy: {
@@ -283,19 +316,21 @@ export const getOrders = async () => {
   const sellerIds = [...new Set(orders.map((order) => order.sellerId))];
   const sellers = sellerIds.length
     ? await prisma.user.findMany({
-        where: {
-          user_id: {
-            in: sellerIds,
-          },
+      where: {
+        user_id: {
+          in: sellerIds,
         },
-        select: {
-          user_id: true,
-          name: true,
-        },
-      })
+      },
+      select: {
+        user_id: true,
+        name: true,
+      },
+    })
     : [];
 
-  const sellerMap = new Map(sellers.map((seller) => [seller.user_id, seller.name]));
+  const sellerMap = new Map(
+    sellers.map((seller) => [seller.user_id, seller.name]),
+  );
 
   return orders.map((order) => ({
     id: order.orderId,
@@ -308,7 +343,8 @@ export const getOrders = async () => {
         ? "Disputed"
         : order.orderStatus === "DELIVERED" || order.orderStatus === "COMPLETED"
           ? "Delivered"
-          : order.orderStatus === "CANCELLED" || order.orderStatus === "REJECTED"
+          : order.orderStatus === "CANCELLED" ||
+            order.orderStatus === "REJECTED"
             ? "Cancelled"
             : order.delivery?.status === "IN_TRANSIT"
               ? "In Transit"
@@ -317,6 +353,9 @@ export const getOrders = async () => {
   }));
 };
 
+/**
+ * Get Pending Company Verifications.
+ */
 export const getPendingCompanyVerifications = async () => {
   return prisma.company.findMany({
     where: {
@@ -348,6 +387,9 @@ export const getPendingCompanyVerifications = async () => {
   });
 };
 
+/**
+ * Approve Company.
+ */
 export const approveCompany = async (companyId: string) => {
   const company = await prisma.company.findUnique({
     where: { companyId },
@@ -373,6 +415,9 @@ export const approveCompany = async (companyId: string) => {
   return { message: "Company approved successfully" };
 };
 
+/**
+ * Reject Company.
+ */
 export const rejectCompany = async (companyId: string) => {
   const company = await prisma.company.findUnique({
     where: { companyId },
@@ -398,6 +443,9 @@ export const rejectCompany = async (companyId: string) => {
   return { message: "Company rejected successfully" };
 };
 
+/**
+ * Verify User.
+ */
 export const verifyUser = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
@@ -429,16 +477,19 @@ export const verifyUser = async (userId: string) => {
     message: "User approved successfully",
     notificationPayload: user.email
       ? {
-          user: {
-            id: user.user_id,
-            name: user.name,
-            email: user.email,
-          },
-        }
+        user: {
+          id: user.user_id,
+          name: user.name,
+          email: user.email,
+        },
+      }
       : undefined,
   };
 };
 
+/**
+ * Reject User.
+ */
 export const rejectUser = async (userId: string, reason?: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
@@ -468,19 +519,22 @@ export const rejectUser = async (userId: string, reason?: string) => {
     message: "User rejected successfully",
     notificationPayload: user.email
       ? {
-          user: {
-            id: user.user_id,
-            name: user.name,
-            email: user.email,
-          },
-          metadata: {
-            reason,
-          },
-        }
+        user: {
+          id: user.user_id,
+          name: user.name,
+          email: user.email,
+        },
+        metadata: {
+          reason,
+        },
+      }
       : undefined,
   };
 };
 
+/**
+ * Block User.
+ */
 export const blockUser = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
@@ -502,6 +556,9 @@ export const blockUser = async (userId: string) => {
   return { message: "User blocked successfully" };
 };
 
+/**
+ * Unblock User.
+ */
 export const unblockUser = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },

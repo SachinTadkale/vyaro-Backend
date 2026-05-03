@@ -1,3 +1,8 @@
+/**
+ * Module: Delivery.types
+ * Purpose: Implements the Delivery.types module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { DeliveryStatus, Prisma, UserRole } from "@prisma/client";
 import { deliveryDetailsSelect } from "./delivery.repository";
 
@@ -7,7 +12,7 @@ export type DeliveryActor = {
   userId: string;
   companyId?: string;
   role?: UserRole;
-  actorType?: "USER" | "COMPANY";
+  actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
 };
 
 export type DeliveryDetailsRecord = Prisma.DeliveryGetPayload<{

@@ -1,5 +1,13 @@
+/**
+ * Module: Bank.validation
+ * Purpose: Implements the Bank.validation module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { z } from "zod";
 
+/**
+ * Bank Schema.
+ */
 export const bankSchema = z.object({
   accountHolder: z.string().trim().min(2, "accountHolder must be at least 2 characters"),
   bankName: z.string().trim().min(2, "bankName must be at least 2 characters"),

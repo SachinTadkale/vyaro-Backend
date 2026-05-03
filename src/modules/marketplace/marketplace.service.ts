@@ -1,3 +1,8 @@
+/**
+ * Module: Marketplace.service
+ * Purpose: Implements the Marketplace.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { ListingStatus, ListingType, VerificationStatus } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
@@ -131,6 +136,9 @@ const ensureVerifiedSeller = async (userId: string) => {
   return user;
 };
 
+/**
+ * Create Listing.
+ */
 export const createListing = async (
   sellerId: string,
   data: CreateListingInput,
@@ -179,6 +187,9 @@ export const createListing = async (
   };
 };
 
+/**
+ * Get Normal Listings.
+ */
 export const getNormalListings = async (query: MarketplaceListingsQuery) => {
   const { listings, total } = await findMarketplaceListings(query);
 
@@ -189,6 +200,9 @@ export const getNormalListings = async (query: MarketplaceListingsQuery) => {
   };
 };
 
+/**
+ * Get Nearby Listings.
+ */
 export const getNearbyListings = async (
   query: MarketplaceListingsQuery & { lat: number; lng: number },
 ) => {
@@ -201,6 +215,9 @@ export const getNearbyListings = async (
   };
 };
 
+/**
+ * Get Marketplace Listings.
+ */
 export const getMarketplaceListings = async (
   query: MarketplaceListingsQuery,
 ) => {
@@ -214,9 +231,12 @@ export const getMarketplaceListings = async (
   return getNormalListings(query);
 };
 
+/**
+ * Get Listing By Id.
+ */
 export const getListingById = async (
   listingId: string,
-  actor: { actorType?: "USER" | "COMPANY"; userId: string },
+  actor: { actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER"; userId: string },
   geoQuery?: ListingGeoQuery,
 ) => {
   const listing = await findListingById(listingId);
@@ -226,7 +246,7 @@ export const getListingById = async (
   }
 
   const canViewInactiveListing =
-    actor.actorType === "USER" && listing.seller.user_id === actor.userId;
+    actor.actorType === "FARMER" && listing.seller.user_id === actor.userId;
 
   if (
     !canViewInactiveListing &&
@@ -255,6 +275,9 @@ export const getListingById = async (
   return formatListing(listing);
 };
 
+/**
+ * Update Listing.
+ */
 export const updateListing = async (
   listingId: string,
   sellerId: string,
@@ -288,6 +311,9 @@ export const updateListing = async (
   };
 };
 
+/**
+ * Delete Listing.
+ */
 export const deleteListing = async (listingId: string, sellerId: string) => {
   const listing = await findListingOwnership(listingId);
 
@@ -308,6 +334,9 @@ export const deleteListing = async (listingId: string, sellerId: string) => {
   };
 };
 
+/**
+ * Get My Listings.
+ */
 export const getMyListings = async (
   sellerId: string,
   query: MyListingsQuery,

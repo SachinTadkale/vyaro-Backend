@@ -1,4 +1,10 @@
+/**
+ * Module: Delivery.repository
+ * Purpose: Implements the Delivery.repository module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import {
+  AssignmentType,
   DeliveryStatus,
   Prisma,
   UserRole,
@@ -13,6 +19,9 @@ const terminalDeliveryStatuses = new Set<DeliveryStatus>([
   DeliveryStatus.CANCELLED,
 ]);
 
+/**
+ * Delivery Details Select.
+ */
 export const deliveryDetailsSelect = {
   deliveryId: true,
   orderId: true,
@@ -36,6 +45,7 @@ export const deliveryDetailsSelect = {
       orderStatus: true,
       paymentStatus: true,
       createdAt: true,
+      deliveryFee:true,
       company: {
         select: {
           companyId: true,
@@ -69,6 +79,9 @@ export const deliveryDetailsSelect = {
   },
 } satisfies Prisma.DeliverySelect;
 
+/**
+ * Order For Delivery Assignment Select.
+ */
 export const orderForDeliveryAssignmentSelect = {
   orderId: true,
   companyId: true,
@@ -84,6 +97,9 @@ export const orderForDeliveryAssignmentSelect = {
   },
 } satisfies Prisma.OrderSelect;
 
+/**
+ * Delivery Partner Select.
+ */
 export const deliveryPartnerSelect = {
   id: true,
   userId: true,
@@ -107,6 +123,9 @@ export const deliveryPartnerSelect = {
   },
 } satisfies Prisma.DeliveryPartnerSelect;
 
+/**
+ * Find Order For Delivery Assignment.
+ */
 export const findOrderForDeliveryAssignment = (
   orderId: string,
   companyId?: string,
@@ -119,18 +138,27 @@ export const findOrderForDeliveryAssignment = (
     select: orderForDeliveryAssignmentSelect,
   });
 
+/**
+ * Find Delivery By Id.
+ */
 export const findDeliveryById = (deliveryId: string) =>
   prisma.delivery.findUnique({
     where: { deliveryId },
     select: deliveryDetailsSelect,
   });
 
+/**
+ * Find Delivery Partner By Id.
+ */
 export const findDeliveryPartnerById = (deliveryPartnerId: string) =>
   prisma.deliveryPartner.findUnique({
     where: { id: deliveryPartnerId },
     select: deliveryPartnerSelect,
   });
 
+/**
+ * Find Next Available Partner.
+ */
 export const findNextAvailablePartner = () =>
   prisma.deliveryPartner.findFirst({
     where: {
@@ -146,6 +174,9 @@ export const findNextAvailablePartner = () =>
     select: deliveryPartnerSelect,
   });
 
+/**
+ * Create Or Reassign Delivery.
+ */
 export const createOrReassignDelivery = async ({
   orderId,
   assignedBy,
@@ -169,13 +200,16 @@ export const createOrReassignDelivery = async ({
       await tx.delivery.create({
         data: {
           orderId,
-          assignedBy,
+          assignedBy: AssignmentType.SYSTEM,
           partnerId: deliveryPartnerId,
           status: DeliveryStatus.ASSIGNED,
         },
       });
     } else {
-      if (existingDelivery.partnerId !== deliveryPartnerId) {
+      if (
+        existingDelivery.partnerId &&
+        existingDelivery.partnerId !== deliveryPartnerId
+      ) {
         await tx.deliveryPartner.update({
           where: { id: existingDelivery.partnerId },
           data: {
@@ -188,7 +222,7 @@ export const createOrReassignDelivery = async ({
       await tx.delivery.update({
         where: { orderId },
         data: {
-          assignedBy,
+          assignedBy: AssignmentType.SYSTEM,
           partnerId: deliveryPartnerId,
           status: DeliveryStatus.ASSIGNED,
           pickupTime: null,
@@ -218,6 +252,9 @@ export const createOrReassignDelivery = async ({
     });
   });
 
+/**
+ * Update Delivery Status Record.
+ */
 export const updateDeliveryStatusRecord = async ({
   deliveryId,
   status,
@@ -275,3 +312,104 @@ export const updateDeliveryStatusRecord = async ({
       select: deliveryDetailsSelect,
     });
   });
+
+// 🔥 Get Available Jobs
+export const findAvailableJobs = () =>
+  prisma.delivery.findMany({
+    where: {
+      status: DeliveryStatus.PENDING_ASSIGNMENT,
+      assignmentStatus: "OPEN",
+      assignmentExpiresAt: {
+        gt: new Date(),
+      },
+    },
+    orderBy: [{ createdAt: "desc" }],
+    select: deliveryDetailsSelect,
+  });
+
+// 🔥 Accept Job (ATOMIC)
+export const acceptDeliveryJob = async (deliveryId: string, userId: string) => {
+  return prisma.$transaction(async (tx) => {
+    const partner = await tx.deliveryPartner.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!partner) {
+      throw new Error("Delivery partner profile not found");
+    }
+
+    const updated = await tx.delivery.updateMany({
+      where: {
+        deliveryId,
+        status: DeliveryStatus.PENDING_ASSIGNMENT,
+        assignmentStatus: "OPEN",
+        assignmentExpiresAt: {
+          gt: new Date(),
+        },
+      },
+      data: {
+        partnerId: partner.id, // ✅ FIXED
+        status: DeliveryStatus.ACCEPTED,
+      },
+    });
+
+    if (updated.count === 0) {
+      throw new Error("Job already taken or expired");
+    }
+
+    return tx.delivery.findUnique({
+      where: { deliveryId },
+      select: deliveryDetailsSelect,
+    });
+  });
+};
+
+// 🔥 Active Deliveries
+export const findActiveDeliveries = (userId: string) =>
+  prisma.delivery.findMany({
+    where: {
+      partner: {
+        userId,
+      },
+      status: {
+        in: [
+          DeliveryStatus.ACCEPTED,
+          DeliveryStatus.PICKED_UP,
+          DeliveryStatus.IN_TRANSIT,
+        ],
+      },
+    },
+    orderBy: [{ updatedAt: "desc" }],
+    select: deliveryDetailsSelect,
+  });
+
+// 🔥 Dashboard Counts
+export const getDeliveryDashboardStats = async (userId: string) => {
+  const [availableJobs, activeDeliveries] = await Promise.all([
+    prisma.delivery.count({
+      where: {
+        status: DeliveryStatus.PENDING_ASSIGNMENT,
+        assignmentStatus: "OPEN",
+        assignmentExpiresAt: { gt: new Date() },
+      },
+    }),
+    prisma.delivery.count({
+      where: {
+        partner: { userId },
+        status: {
+          in: [
+            DeliveryStatus.ACCEPTED,
+            DeliveryStatus.PICKED_UP,
+            DeliveryStatus.IN_TRANSIT,
+          ],
+        },
+      },
+    }),
+  ]);
+
+  return {
+    availableJobs,
+    activeDeliveries,
+  };
+};

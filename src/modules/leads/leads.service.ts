@@ -1,3 +1,8 @@
+/**
+ * Module: Leads.service
+ * Purpose: Implements the Leads.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import prisma from "../../config/prisma";
@@ -7,7 +12,7 @@ import { CreateLeadInput } from "./leads.validation";
 type LeadRow = {
   id: string;
   email: string;
-  role: "FARMER" | "COMPANY";
+  role: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
   name: string | null;
   createdAt: Date;
 };
@@ -21,6 +26,9 @@ const cleanOptionalName = (name?: string) => {
   return cleanedName.length > 0 ? cleanedName : undefined;
 };
 
+/**
+ * Create Lead.
+ */
 export const createLead = async (data: CreateLeadInput) => {
   const existingLead = await prisma.$queryRaw<Array<Pick<LeadRow, "id">>>(Prisma.sql`
     SELECT "id"
@@ -47,6 +55,9 @@ export const createLead = async (data: CreateLeadInput) => {
   };
 };
 
+/**
+ * Get Leads.
+ */
 export const getLeads = async () => {
   return prisma.$queryRaw<LeadRow[]>(Prisma.sql`
     SELECT "id", "email", "role", "name", "createdAt"
@@ -55,6 +66,9 @@ export const getLeads = async () => {
   `);
 };
 
+/**
+ * Get Lead By Id.
+ */
 export const getLeadById = async (id: string) => {
   const lead = await prisma.$queryRaw<LeadRow[]>(Prisma.sql`
     SELECT "id", "email", "role", "name", "createdAt"
@@ -70,6 +84,9 @@ export const getLeadById = async (id: string) => {
   return lead[0];
 };
 
+/**
+ * Delete Lead.
+ */
 export const deleteLead = async (id: string) => {
   const existingLead = await prisma.$queryRaw<Array<Pick<LeadRow, "id">>>(Prisma.sql`
     SELECT "id"

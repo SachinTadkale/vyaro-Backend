@@ -1,3 +1,8 @@
+/**
+ * Module: Company.routes
+ * Purpose: Implements the Company.routes module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Router } from "express";
 import * as controller from "./company.controller";
 import { authMiddleware } from "../../../middleware/auth.middleware";

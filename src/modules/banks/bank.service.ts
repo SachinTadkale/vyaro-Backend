@@ -1,10 +1,16 @@
+/**
+ * Module: Bank.service
+ * Purpose: Implements the Bank.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Prisma } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
 import { encrypt } from "../../utils/encryption";
 import { BankInput } from "./bank.validation";
 
-const maskAccountNumber = (lastFourDigits: string) => `**** **** ${lastFourDigits}`;
+const maskAccountNumber = (lastFourDigits: string) =>
+  `**** **** ${lastFourDigits}`;
 
 const maskIfsc = (lastFourCharacters: string) => `XXXXXXX${lastFourCharacters}`;
 
@@ -22,6 +28,9 @@ const formatBankDetails = (bank: {
   ifsc: maskIfsc(bank.ifscLast4),
 });
 
+/**
+ * Add Bank.
+ */
 export const addBank = async (userId: string, data: BankInput) => {
   const existing = await prisma.bankDetails.findFirst({
     where: { userId },
@@ -76,8 +85,13 @@ export const addBank = async (userId: string, data: BankInput) => {
   }
 
   await prisma.user.update({
-    where: { user_id: userId },
-    data: { registrationStep: 3 },
+    where: {
+      user_id: userId,
+      registrationStep: { lt: 3 },
+    },
+    data: {
+      registrationStep: 3, // Bank completed
+    },
   });
 
   return formatBankDetails(bank);

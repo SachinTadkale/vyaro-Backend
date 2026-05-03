@@ -1,8 +1,16 @@
+/**
+ * Module: Company Auth.validation
+ * Purpose: Implements the Company Auth.validation module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { z, ZodType } from "zod";
 import ApiError from "../../utils/apiError";
 
 const nonEmptyString = z.string().trim().min(1);
 
+/**
+ * Register Company Schema.
+ */
 export const registerCompanySchema = z.object({
   companyName: nonEmptyString,
   registrationNo: nonEmptyString.max(100),
@@ -16,15 +24,24 @@ export const registerCompanySchema = z.object({
   }),
 }).strict();
 
+/**
+ * Upload Company Documents Schema.
+ */
 export const uploadCompanyDocumentsSchema = z.object({
   companyId: nonEmptyString,
 }).strict();
 
+/**
+ * Company Login Schema.
+ */
 export const companyLoginSchema = z.object({
   registrationNo: nonEmptyString.max(100),
   password: z.string().min(1, { message: "Password is required" }),
 }).strict();
 
+/**
+ * Validate Schema.
+ */
 export const validateSchema = <T>(schema: ZodType<T>, data: unknown): T => {
   const result = schema.safeParse(data);
 

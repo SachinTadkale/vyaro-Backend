@@ -1,3 +1,8 @@
+/**
+ * Module: Api Error
+ * Purpose: Implements the Api Error module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 export default class ApiError extends Error {
   statusCode: number;
   isOperational: boolean;

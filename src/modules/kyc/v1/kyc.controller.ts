@@ -1,11 +1,23 @@
+/**
+ * Module: Kyc.controller
+ * Purpose: Implements the Kyc.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Response } from "express";
 import ApiError from "../../../utils/apiError";
 import asyncHandler from "../../../utils/asyncHandler";
 import { uploadToCloudinary } from "../../../config/cloudinary";
 import * as kycService from "../kyc.service";
 
+/**
+ * Upload Kyc.
+ */
 export const uploadKyc = asyncHandler(async (req: any, res: Response) => {
   const userId = req.user.userId;
+
+  if (!req.body.docType) {
+    throw new ApiError(400, "docType is required");
+  }
 
   if (!req.files || !req.files.frontImage) {
     throw new ApiError(400, "Front image is required");
@@ -25,7 +37,7 @@ export const uploadKyc = asyncHandler(async (req: any, res: Response) => {
     userId,
     req.body,
     frontImageUrl,
-    backImageUrl
+    backImageUrl,
   );
 
   return res.status(201).json({

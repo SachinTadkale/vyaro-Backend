@@ -1,3 +1,8 @@
+/**
+ * Module: Notification.service
+ * Purpose: Implements the Notification.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { dispatchNotificationEmail } from "./notification.mapper";
 import {
   NotificationEventType,

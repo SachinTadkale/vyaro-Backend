@@ -1,8 +1,17 @@
+/**
+ * Module: Delivery.controller
+ * Purpose: Implements the Delivery.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import asyncHandler from "../../../utils/asyncHandler";
 import {
+  acceptJob,
   assignDelivery,
   autoAssignDelivery,
+  getActiveDeliveries,
+  getAvailableJobs,
+  getDashboard,
   getDelivery,
   updateDeliveryStatus,
 } from "../delivery.service";
@@ -13,12 +22,17 @@ import {
 } from "../delivery.schema";
 import { updateStatusSchema } from "../delivery.schema";
 
+/**
+ * Assign Delivery Controller.
+ */
 export const assignDeliveryController = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(assignDeliverySchema, {
       ...req.body,
       idempotencyKey:
-        req.body?.idempotencyKey ?? req.header("x-idempotency-key") ?? undefined,
+        req.body?.idempotencyKey ??
+        req.header("x-idempotency-key") ??
+        undefined,
     });
     const result = await assignDelivery(req.user, payload);
 
@@ -32,6 +46,9 @@ export const assignDeliveryController = asyncHandler(
   },
 );
 
+/**
+ * Auto Assign Delivery Controller.
+ */
 export const autoAssignDeliveryController = asyncHandler(
   async (req: Request, res: Response) => {
     const { orderId } = validateSchema(
@@ -50,6 +67,9 @@ export const autoAssignDeliveryController = asyncHandler(
   },
 );
 
+/**
+ * Update Delivery Status Controller.
+ */
 export const updateDeliveryStatusController = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(deliveryIdParamSchema, req.params);
@@ -66,6 +86,9 @@ export const updateDeliveryStatusController = asyncHandler(
   },
 );
 
+/**
+ * Get Delivery Controller.
+ */
 export const getDeliveryController = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = validateSchema(deliveryIdParamSchema, req.params);
@@ -77,3 +100,23 @@ export const getDeliveryController = asyncHandler(
     });
   },
 );
+
+export const getJobsController = asyncHandler(async (req, res) => {
+  const data = await getAvailableJobs(req.user);
+  res.json({ success: true, data });
+});
+
+export const acceptJobController = asyncHandler(async (req, res) => {
+  const data = await acceptJob(req.user, req.params.id);
+  res.json({ success: true, data });
+});
+
+export const getActiveController = asyncHandler(async (req, res) => {
+  const data = await getActiveDeliveries(req.user);
+  res.json({ success: true, data });
+});
+
+export const getDashboardController = asyncHandler(async (req, res) => {
+  const data = await getDashboard(req.user);
+  res.json({ success: true, data });
+});

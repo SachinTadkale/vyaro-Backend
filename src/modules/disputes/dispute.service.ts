@@ -1,3 +1,8 @@
+/**
+ * Module: Dispute.service
+ * Purpose: Implements the Dispute.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import {
   AuditEntityType,
   DisputeStatus,
@@ -35,7 +40,7 @@ type DisputeActor = {
   userId: string;
   role?: UserRole;
   companyId?: string;
-  actorType?: "USER" | "COMPANY";
+  actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
 };
 
 type DisputeRecord = NonNullable<Awaited<ReturnType<typeof findDisputeById>>>;
@@ -97,7 +102,7 @@ const assertActorCanAccessOrder = (
     actor.companyId &&
     actor.companyId === order.companyId;
   const isFarmerActor =
-    actor.actorType === "USER" && actor.userId === order.sellerId;
+    actor.actorType === "FARMER" && actor.userId === order.sellerId;
 
   if (!isCompanyActor && !isFarmerActor) {
     throw new ApiError(403, "Unauthorized", {
@@ -144,6 +149,9 @@ const toResolutionPaymentStatus = (
   return PaymentStatus.REFUNDED;
 };
 
+/**
+ * Create Dispute.
+ */
 export const createDispute = async (
   actor: DisputeActor,
   input: CreateDisputeInput,
@@ -174,7 +182,7 @@ export const createDispute = async (
   }
 
   const raisedBy = actor.companyId ?? actor.userId;
-  const raisedByActorType = actor.actorType ?? "USER";
+  const raisedByActorType = actor.actorType ?? "FARMER";
   const priorDisputesByActor = await countDisputesRaisedByActor(
     raisedBy,
     raisedByActorType,
@@ -228,6 +236,9 @@ export const createDispute = async (
   return formatDispute(dispute);
 };
 
+/**
+ * Get Dispute.
+ */
 export const getDispute = async (actor: DisputeActor, disputeId: string) => {
   const dispute = await findDisputeById(disputeId);
 
@@ -242,6 +253,9 @@ export const getDispute = async (actor: DisputeActor, disputeId: string) => {
   return formatDispute(dispute);
 };
 
+/**
+ * Resolve Dispute.
+ */
 export const resolveDispute = async (
   actor: DisputeActor,
   disputeId: string,

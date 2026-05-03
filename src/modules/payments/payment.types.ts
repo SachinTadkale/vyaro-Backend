@@ -1,3 +1,8 @@
+/**
+ * Module: Payment.types
+ * Purpose: Implements the Payment.types module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
 import type { NotificationPayload } from "../notification/notification.types";
 

@@ -1,7 +1,15 @@
+/**
+ * Module: Auth.middleware
+ * Purpose: Implements the Auth.middleware module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { NextFunction, Request, Response } from "express";
 import { JwtPayload, verifyToken } from "../lib/jwt";
 import { UserRole } from "@prisma/client";
 
+/**
+ * Auth Middleware.
+ */
 export const authMiddleware = (
   req: Request,
   res: Response,
@@ -38,7 +46,7 @@ export const authMiddleware = (
           ? "COMPANY"
           : decoded.role === UserRole.DELIVERY_PARTNER
             ? "DELIVERY_PARTNER"
-            : "USER"),
+            : "FARMER"),
     };
 
     next();

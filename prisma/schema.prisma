@@ -14,10 +14,17 @@ datasource db {
 //////////////////////
 
 enum UserRole {
-  USER
+  FARMER
   ADMIN
   COMPANY
   DELIVERY_PARTNER
+}
+
+enum DocumentType {
+  AADHAAR
+  PAN
+  DRIVING_LICENSE
+  VEHICLE_RC
 }
 
 enum Gender {
@@ -88,8 +95,10 @@ enum TransactionDirection {
 }
 
 enum ActorType {
-  USER
+  FARMER
   COMPANY
+  DELIVERY_PARTNER
+  PLATFORM
 }
 
 enum TransactionStatus {
@@ -159,6 +168,14 @@ enum TargetAudience {
   DELIVERY_PARTNER
 }
 
+enum VehicleType {
+  TRACTOR   // assume trolley included
+  MINI_TRUCK
+  PICKUP
+  TRUCK
+  HEAVY_TRUCK
+}
+
 //////////////////////
 // MODELS
 //////////////////////
@@ -169,10 +186,13 @@ model User {
   phone_no           String             @unique
   password           String
   address            String
+  /// Localized address variants. Shape: { "hi": "...", "mr": "..." }
+  /// Populated once on create/update via TranslationService.translateAddress()
+  addressLocal       Json?
   email              String?            @unique
   gender             Gender?
   isBlocked          Boolean            @default(false)
-  role               UserRole           @default(USER)
+  role               UserRole
   verificationStatus VerificationStatus @default(PENDING)
   registrationStep   Int                @default(1)
 
@@ -190,7 +210,7 @@ model User {
   otps          Otp[]
   transactions  Transaction[]   @relation("UserTransactions")
   payouts       Payout[]
-  kyc           Kyc?
+  kyc           Kyc[]
 
   @@index([phone_no])
 }
@@ -203,6 +223,9 @@ model FarmDetails {
   village  String
   pincode  String
   landArea Float?
+  /// Localized address fields. Shape: { "hi": { "state": "...", "district": "...", "village": "..." }, "mr": { ... } }
+  /// Populated once on create/update via TranslationService.
+  addressLocal Json?
 
   user User @relation(fields: [userId], references: [user_id], onDelete: Cascade)
 }
@@ -307,6 +330,11 @@ model Order {
   productCategory String
   productUnit     String
 
+  /// Snapshot of product/category translations at order time.
+  /// Shape: { "name": { "en": "Tomato", "hi": "टमाटर", "mr": "टोमॅटो" }, "category": { ... } }
+  /// Stored immutably — reflects translations as of order creation.
+  productTranslations Json?
+
   orderStatus   OrderStatus   @default(CREATED)
   paymentStatus PaymentStatus @default(INITIATED)
 
@@ -335,10 +363,13 @@ model Delivery {
   deliveryId String @id @default(uuid())
   orderId    String @unique
 
-  partnerId  String
+  partnerId  String?
   assignedBy AssignmentType @default(SYSTEM) // SYSTEM for now
 
   status DeliveryStatus @default(PENDING_ASSIGNMENT)
+
+  assignmentExpiresAt DateTime?
+  assignmentStatus    String @default("OPEN") // OPEN, EXPIRED, MANUAL
 
   pickupOtp String?
   pickupOtpVerified Boolean @default(false)
@@ -365,8 +396,11 @@ model DeliveryPartner {
   id     String @id @default(uuid())
   userId String @unique
 
-  vehicleType   String
+  vehicleType   VehicleType
+  vehicleNumber String
   licenseNumber String
+
+  capacity Int?
 
   isAvailable Boolean @default(true)
   isActive    Boolean @default(true)
@@ -575,14 +609,18 @@ model Otp {
 
 model Kyc {
   kycId      String   @id @default(uuid())
-  userId     String   @unique
-  docType    String
-  docNo      String   @unique
+  userId     String
+
+  docType    DocumentType
+  docNo      String
   frontImage String
   backImage  String?
+
   createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+
+  @@unique([userId, docType])
 }
 
 model Lead {
@@ -616,4 +654,20 @@ model Broadcast {
   @@index([targetAudience, isActive, publishAt])
   @@index([type, createdAt])
   @@index([expiresAt])
+}
+
+model TranslationDictionary {
+  id        String   @id @default(cuid())
+  key       String   @unique   // normalized word
+  original  String
+
+  en        String
+  hi        String
+  mr        String
+
+  usageCount Int      @default(1)   // optimization
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@index([key])
 }

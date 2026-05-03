@@ -1,3 +1,8 @@
+/**
+ * Module: Admin Auth.validation
+ * Purpose: Implements the Admin Auth.validation module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { z, ZodType } from "zod";
 import ApiError from "../../utils/apiError";
 
@@ -13,15 +18,24 @@ const otpSchema = z.string().trim().regex(/^\d{6}$/, {
   message: "OTP must be a 6 digit code",
 });
 
+/**
+ * Login Admin Schema.
+ */
 export const loginAdminSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, { message: "Password is required" }),
 }).strict();
 
+/**
+ * Forgot Password Admin Schema.
+ */
 export const forgotPasswordAdminSchema = z.object({
   email: emailSchema,
 }).strict();
 
+/**
+ * Reset Password Admin Schema.
+ */
 export const resetPasswordAdminSchema = z.object({
   email: emailSchema,
   otp: otpSchema,
@@ -29,6 +43,9 @@ export const resetPasswordAdminSchema = z.object({
   confirmPassword: passwordSchema,
 }).strict();
 
+/**
+ * Validate Schema.
+ */
 export const validateSchema = <T>(schema: ZodType<T>, data: unknown): T => {
   const result = schema.safeParse(data);
 

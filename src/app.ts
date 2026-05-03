@@ -1,14 +1,23 @@
-import express, { Request, Response} from "express";
+/**
+ * Module: Express Application
+ * Purpose: Configures the FarmZy backend HTTP pipeline, middleware stack, and route mounting.
+ * Used by: src/server.ts
+ */
+import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import v1Routes from './routes/v1';
+import v1Routes from "./routes/v1";
 import paymentWebhookRoutes from "./modules/payments/v1/payment.routes";
 import { createRateLimiter } from "./middleware/rateLimit.middleware";
 import { errorHandler } from "./middleware/error.middleware";
+import { requestLogger } from "./middleware/requestLogger";
+import { langMiddleware } from "./middleware/lang.middleware";
+import cron from "node-cron";
+import {expireDeliveries } from "./cron/delivery.cron";
 
 const API_PREFIX = "/api/v1";
-const app = express();
+const expressApp = express();
 const parseAllowedOrigins = () =>
   [
     process.env.APP_BASE_URL,
@@ -33,27 +42,24 @@ const webhookLimiter = createRateLimiter({
   maxRequests: 120,
 });
 
-app.disable("x-powered-by");
+expressApp.disable("x-powered-by");
 if (process.env.TRUST_PROXY === "true") {
-  app.set("trust proxy", true);
+  expressApp.set("trust proxy", true);
 }
 
-app.use(
+expressApp.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
-app.use(
+expressApp.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) {
         return callback(null, true);
       }
 
-      if (
-        process.env.NODE_ENV !== "production" ||
-        allowedOrigins.has(origin)
-      ) {
+      if (process.env.NODE_ENV !== "production" || allowedOrigins.has(origin)) {
         return callback(null, true);
       }
 
@@ -62,28 +68,38 @@ app.use(
     credentials: true,
   }),
 );
-app.use(morgan("dev"));
+expressApp.use(morgan("dev"));
 // Razorpay signs the raw webhook body, so this route must be mounted before JSON parsing.
-app.use(
+expressApp.use(
   "/webhooks",
   webhookLimiter,
   express.raw({ type: "application/json", limit: "256kb" }),
   paymentWebhookRoutes,
 );
-app.use(express.json({ limit: "100kb" }));
-app.use(express.urlencoded({ extended: false, limit: "100kb" }));
+expressApp.use(express.json({ limit: "100kb" }));
+expressApp.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
-app.use(API_PREFIX, globalApiLimiter,v1Routes);
+// Resolve x-lang header → req.lang for all downstream controllers
+expressApp.use(langMiddleware);
+
+expressApp.use(API_PREFIX, globalApiLimiter, v1Routes);
 
 /* ---------------- 404 HANDLER ---------------- */
 
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
+expressApp.use((request: Request, response: Response) => {
+  response.status(404).json({
     success: false,
     message: "Route Not Found",
   });
 });
 
-app.use(errorHandler);
+expressApp.use(errorHandler);
+expressApp.use(requestLogger);
 
-export default app;
+// Run every 5 minutes
+cron.schedule("*/5 * * * *", async () => {
+  console.log("Running delivery expiry...");
+  await expireDeliveries();
+});
+
+export default expressApp;

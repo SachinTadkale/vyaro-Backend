@@ -1,6 +1,14 @@
+/**
+ * Module: Delivery.middleware
+ * Purpose: Implements the Delivery.middleware module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 
+/**
+ * Require Delivery Ownership.
+ */
 export const requireDeliveryOwnership = () => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const deliveryId = req.params.deliveryId; // keep consistent naming

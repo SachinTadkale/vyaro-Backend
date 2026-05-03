@@ -1,7 +1,15 @@
+/**
+ * Module: Verification.middleware
+ * Purpose: Implements the Verification.middleware module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { VerificationStatus } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 
+/**
+ * Verified Only.
+ */
 export const verifiedOnly = async (
   req: Request,
   res: Response,

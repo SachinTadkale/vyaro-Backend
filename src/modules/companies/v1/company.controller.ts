@@ -1,3 +1,8 @@
+/**
+ * Module: Company.controller
+ * Purpose: Implements the Company.controller module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { Request, Response } from "express";
 import * as service from "../company.service";
 import { uploadToCloudinary } from "../../../config/cloudinary";
@@ -5,6 +10,9 @@ import fs from "fs";
 import ApiError from "../../../utils/apiError";
 import asyncHandler from "../../../utils/asyncHandler";
 
+/**
+ * Get Company Profile.
+ */
 export const getCompanyProfile = asyncHandler(
   async (req: Request, res: Response) => {
     const companyId = req.user?.companyId;
@@ -22,6 +30,9 @@ export const getCompanyProfile = asyncHandler(
   }
 );
 
+/**
+ * Upload Profile Image.
+ */
 export const uploadProfileImage = asyncHandler(
   async (req: Request, res: Response) => {
     const companyId = req.user?.companyId;
@@ -61,6 +72,9 @@ export const uploadProfileImage = asyncHandler(
   }
 );
 
+/**
+ * Delete Profile Image.
+ */
 export const deleteProfileImage = asyncHandler(
   async (req: Request, res: Response) => {
     const companyId = req.user?.companyId;

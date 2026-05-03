@@ -1,3 +1,8 @@
+/**
+ * Module: Order.service
+ * Purpose: Implements the Order.service module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 import { OrderStatus, VerificationStatus } from "@prisma/client";
 import ApiError from "../../utils/apiError";
 import {
@@ -87,6 +92,9 @@ const parseOrderStatus = (status?: string) => {
   return OrderStatus[status as keyof typeof OrderStatus];
 };
 
+/**
+ * Create Order.
+ */
 export const createOrder = async (
   companyId: string | undefined,
   payload: CreateOrderInput,
@@ -167,6 +175,9 @@ export const createOrder = async (
   };
 };
 
+/**
+ * Get Company Orders.
+ */
 export const getCompanyOrders = async (
   companyId: string | undefined,
   query: CompanyOrdersQuery,
@@ -199,6 +210,9 @@ export const getCompanyOrders = async (
   };
 };
 
+/**
+ * Get Farmer Orders.
+ */
 export const getFarmerOrders = async (
   sellerId: string | undefined,
   query: FarmerOrdersQuery,
@@ -235,6 +249,9 @@ export const getFarmerOrders = async (
   };
 };
 
+/**
+ * Get Farmer Order By Id.
+ */
 export const getFarmerOrderById = async (
   sellerId: string | undefined,
   orderId: string,
@@ -256,6 +273,9 @@ export const getFarmerOrderById = async (
   return formatOrder(order);
 };
 
+/**
+ * Get Company Order By Id.
+ */
 export const getCompanyOrderById = async (
   companyId: string | undefined,
   orderId: string,
@@ -273,6 +293,9 @@ export const getCompanyOrderById = async (
   return formatOrder(order);
 };
 
+/**
+ * Accept Order.
+ */
 export const acceptOrder = async (sellerId: string, orderId: string) => {
   const result = await updateOrderStatus({
     orderId,
@@ -321,6 +344,9 @@ export const acceptOrder = async (sellerId: string, orderId: string) => {
   };
 };
 
+/**
+ * Reject Order.
+ */
 export const rejectOrder = async (sellerId: string, orderId: string) => {
   const result = await updateOrderStatus({
     orderId,
@@ -373,6 +399,9 @@ export const rejectOrder = async (sellerId: string, orderId: string) => {
   };
 };
 
+/**
+ * Cancel Order.
+ */
 export const cancelOrder = async (
   companyId: string | undefined,
   orderId: string,
@@ -429,6 +458,9 @@ export const cancelOrder = async (
   };
 };
 
+/**
+ * Get Farmer Order For Authorization.
+ */
 export const getFarmerOrderForAuthorization = async (
   sellerId: string,
   orderId: string,

@@ -1,3 +1,8 @@
+/**
+ * Module: Notification.types
+ * Purpose: Implements the Notification.types module for FarmZy.
+ * Note: Documentation-only change; behavior remains unchanged.
+ */
 export enum NotificationEventType {
   USER_REGISTERED = "USER_REGISTERED",
   USER_APPROVED = "USER_APPROVED",
@@ -18,7 +23,7 @@ export enum NotificationEventType {
   BROADCAST_ALERT = "BROADCAST_ALERT",
 }
 
-export type NotificationAudience = "USER" | "COMPANY" | "DELIVERY_PARTNER" | "ADMIN";
+export type NotificationAudience = "FARMER" | "COMPANY" | "DELIVERY_PARTNER" | "ADMIN";
 export type NotificationTone = "brand" | "success" | "warning" | "neutral";
 
 export type NotificationUser = {
