@@ -43,6 +43,7 @@ import leadsRoutes from "../modules/leads/v1/leads.routes";
 // Transaction routes.
 import transactionRoutes from "../modules/transactions/v1/transactions.routes";
 import { healthCheck } from "../modules/health/health.controller";
+import testMailRoutes from "../modules/test_mail/test-mail.routes";
 
 const apiV1Router = Router();
 
@@ -86,5 +87,8 @@ apiV1Router.use("/transactions", transactionRoutes);
 apiV1Router.use("/banks", bankRoutes);
 apiV1Router.use("/broadcasts", broadcastRoutes);
 apiV1Router.use("/leads", leadsRoutes);
+
+/* ---------------- OTHER ---------------- */
+apiV1Router.use('/test-mail',testMailRoutes);
 
 export default apiV1Router;
