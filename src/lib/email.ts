@@ -50,14 +50,30 @@ type EventNotificationInput = {
 };
 
 const transporter = nodemailer.createTransport({
-  host: "142.250.152.108",
-  port: Number(process.env.SMTP_PORT),
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: Number(process.env.SMTP_PORT) || 587,
   
-  secure: false,
+  // 465 uses implicit SSL/TLS (secure: true)
+  // 587 uses STARTTLS (secure: false)
+  secure: Number(process.env.SMTP_PORT) === 465,
+  
+  // Forces IPv4 to resolve production "IP version" connectivity issues
+  family: 4,
+
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+
+  // Robust TLS settings for production reliability
+  tls: {
+    rejectUnauthorized: false, // Helps with some network/certificate quirks
+    servername: process.env.SMTP_HOST || "smtp.gmail.com",
+  },
+
+  connectionTimeout: 20000, // 20 seconds
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
 });
 
 const PLATFORM_NAME = "Farmzy";
