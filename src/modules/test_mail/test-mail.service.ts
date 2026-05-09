@@ -19,23 +19,21 @@ class TestMailService {
 
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: Number(process.env.SMTP_PORT) || 465,
 
-      port: Number(process.env.SMTP_PORT),
+      // Port 465 = secure: true, Port 587 = secure: false
+      secure: Number(process.env.SMTP_PORT) === 465 || !process.env.SMTP_PORT,
 
-      // 465 => true
-      // 587 => false
-      secure: Number(process.env.SMTP_PORT) === 465,
-
-      family:4,
+      family: 4,
 
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
 
-      connectionTimeout: 30000,
-      greetingTimeout: 30000,
-      socketTimeout: 30000,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
 
       logger: true,
       debug: true,
