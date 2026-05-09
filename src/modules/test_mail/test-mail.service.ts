@@ -17,12 +17,10 @@ class TestMailService {
     });
 
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      host: process.env.SMTP_HOST || "smtp.googlemail.com",
       port: Number(process.env.SMTP_PORT) || 465,
 
       secure: Number(process.env.SMTP_PORT) === 465 || !process.env.SMTP_PORT,
-
-      family: 4,
 
       auth: {
         user: process.env.SMTP_USER,
@@ -38,7 +36,7 @@ class TestMailService {
 
       tls: {
         rejectUnauthorized: false,
-        servername: process.env.SMTP_HOST || "smtp.gmail.com",
+        servername: process.env.SMTP_HOST || "smtp.googlemail.com",
       },
     });
   }
