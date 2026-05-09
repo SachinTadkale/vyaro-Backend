@@ -52,6 +52,7 @@ type EventNotificationInput = {
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
+  family: 4,
   secure: false,
   auth: {
     user: process.env.SMTP_USER,

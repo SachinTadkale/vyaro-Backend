@@ -26,6 +26,8 @@ class TestMailService {
       // 587 => false
       secure: Number(process.env.SMTP_PORT) === 465,
 
+      family:4,
+
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
