@@ -10,10 +10,9 @@ class TestMailService {
     console.log("=================================");
 
     console.log("MAIL ENV DEBUG:", {
-      SMTP_HOST_EXISTS: !!process.env.SMTP_HOST,
-      SMTP_PORT_EXISTS: !!process.env.SMTP_PORT,
-      SMTP_USER_EXISTS: !!process.env.SMTP_USER,
-      SMTP_PASS_EXISTS: !!process.env.SMTP_PASS,
+      SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com (default)",
+      SMTP_PORT: process.env.SMTP_PORT || "465 (default)",
+      SMTP_USER: process.env.SMTP_USER ? "EXISTS" : "MISSING",
       NODE_ENV: process.env.NODE_ENV,
     });
 
@@ -21,7 +20,6 @@ class TestMailService {
       host: process.env.SMTP_HOST || "smtp.gmail.com",
       port: Number(process.env.SMTP_PORT) || 465,
 
-      // Port 465 = secure: true, Port 587 = secure: false
       secure: Number(process.env.SMTP_PORT) === 465 || !process.env.SMTP_PORT,
 
       family: 4,
@@ -31,9 +29,9 @@ class TestMailService {
         pass: process.env.SMTP_PASS,
       },
 
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+      connectionTimeout: 60000,
+      greetingTimeout: 60000,
+      socketTimeout: 60000,
 
       logger: true,
       debug: true,
