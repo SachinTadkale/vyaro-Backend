@@ -18,7 +18,7 @@ class TestMailService {
     });
 
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host: "142.250.152.108",
 
       port: Number(process.env.SMTP_PORT),
 
@@ -33,15 +33,16 @@ class TestMailService {
         pass: process.env.SMTP_PASS,
       },
 
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 15000,
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
 
       logger: true,
       debug: true,
 
       tls: {
         rejectUnauthorized: false,
+        servername: "smtp.gmail.com",
       },
     });
   }
