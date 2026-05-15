@@ -93,6 +93,13 @@ export const approveCompany = asyncHandler(
     const companyId = req.params.id as string;
     const result = await adminService.approveCompany(companyId);
 
+    if (result.notificationPayload) {
+      void notificationService.sendNotification(
+        NotificationEventType.COMPANY_APPROVED,
+        result.notificationPayload
+      );
+    }
+
     return res.status(200).json({
       success: true,
       message: result.message,
@@ -107,6 +114,13 @@ export const rejectCompany = asyncHandler(
   async (req: Request, res: Response) => {
     const companyId = req.params.id as string;
     const result = await adminService.rejectCompany(companyId);
+
+    if (result.notificationPayload) {
+      void notificationService.sendNotification(
+        NotificationEventType.COMPANY_REJECTED,
+        result.notificationPayload
+      );
+    }
 
     return res.status(200).json({
       success: true,

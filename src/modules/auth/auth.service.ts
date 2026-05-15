@@ -9,7 +9,9 @@ import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
 import { generateToken } from "../../lib/jwt";
 import otpService from "../otp/otp.service";
+import companyOtpService from "../otp/company-otp.service";
 import * as companyRepo from "./company-auth.repository";
+import { sendCompanyPasswordResetOtp } from "../../lib/resend-email";
 
 // Types
 import type {
@@ -27,7 +29,14 @@ import type {
   ResetPasswordResult as UserResetPasswordResult,
 } from "./user-auth.types";
 
-import type { RegisterCompanyInput } from "./company-auth.types";
+import type {
+  RegisterCompanyInput,
+  CompanyForgotPasswordInput,
+  CompanyVerifyResetOtpInput,
+  CompanyResetPasswordInput,
+  CompanyMessageResult,
+} from "./company-auth.types";
+
 
 import type {
   AdminForgotPasswordInput,
@@ -36,6 +45,37 @@ import type {
   AdminMessageResult,
   AdminResetPasswordInput,
 } from "./admin-auth.types";
+
+/* -------------------------------------------------------------------------- */
+/*                           SECURITY UTILITIES                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Enforce a minimum elapsed time for an async operation.
+ *
+ * Used to normalize response timing in flows that could otherwise leak
+ * information about whether a resource (e.g. an email) exists.
+ *
+ * A random jitter within [minMs, maxMs] is added to prevent deterministic
+ * timing patterns that could defeat naive timing attacks.
+ *
+ * @param startTime  Value from Date.now() captured before the operation began
+ * @param minMs      Minimum total elapsed time to enforce (default: 400ms)
+ * @param maxMs      Maximum total elapsed time to enforce (default: 700ms)
+ */
+const enforceMinResponseTime = async (
+  startTime: number,
+  minMs = 400,
+  maxMs = 700,
+): Promise<void> => {
+  const jitter = Math.floor(Math.random() * (maxMs - minMs));
+  const target = minMs + jitter;
+  const elapsed = Date.now() - startTime;
+  const remaining = target - elapsed;
+  if (remaining > 0) {
+    await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+  }
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                USER AUTH                                   */
@@ -350,7 +390,19 @@ export const registerCompany = async (data: RegisterCompanyInput) => {
   if (existing) throw new ApiError(409, "Company already exists");
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
-  return companyRepo.createCompany({ ...data, password: hashedPassword });
+  const company = await companyRepo.createCompany({ ...data, password: hashedPassword });
+  return {
+    company,
+    notificationPayload: company.email
+      ? {
+          company: {
+            id: company.companyId,
+            name: company.companyName,
+            email: company.email,
+          },
+        }
+      : undefined,
+  };
 };
 
 /**
@@ -403,8 +455,158 @@ export const logoutCompany = async () => {
 };
 
 /* -------------------------------------------------------------------------- */
-/*                                ADMIN AUTH                                   */
+/*                        COMPANY PASSWORD RESET                               */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Forgot Company Password — Step 1.
+ *
+ * Accepts an email, silently looks up the company, generates an OTP, and
+ * dispatches a password reset email via Resend.
+ *
+ * Security: ALWAYS returns a generic success message regardless of whether
+ * the email exists, to prevent account enumeration.
+ */
+export const forgotCompanyPassword = async (
+  data: CompanyForgotPasswordInput,
+): Promise<CompanyMessageResult> => {
+  // Capture start time BEFORE any async work so we can enforce a minimum
+  // response duration regardless of whether the email exists.
+  // This neutralises timing-based account enumeration.
+  const startTime = Date.now();
+
+  const GENERIC_RESPONSE = {
+    message: "If an account with this email exists, a reset code has been sent.",
+  };
+
+  const company = await prisma.company.findUnique({ where: { email: data.email } });
+
+  if (!company) {
+    // Silent exit — do not leak whether the email is registered.
+    // Still enforce minimum response time before returning.
+    await enforceMinResponseTime(startTime);
+    return GENERIC_RESPONSE;
+  }
+
+  // Generate OTP (handles cooldown enforcement and invalidates old OTPs)
+  const otpCode = await companyOtpService.generateOtp(
+    company.companyId,
+    OtpType.RESET_PASSWORD,
+  );
+
+  // Send email — failures are logged but not surfaced to the caller
+  try {
+    await sendCompanyPasswordResetOtp(company.email, company.companyName, otpCode);
+  } catch (err: any) {
+    console.error("\n========================================");
+    console.error("🚨 RESEND ERROR DETECTED 🚨");
+    console.error("========================================");
+    console.error("Message:", err?.message);
+    console.error("Status Code:", err?.statusCode || err?.status || "N/A");
+    console.error("Stack Trace:\n", err?.stack);
+    console.error("Full Raw Error Object:");
+    console.dir(err, { depth: null });
+    console.error("========================================\n");
+  }
+
+  // Enforce minimum response time for the "email found" path too,
+  // so both branches take approximately the same wall-clock time.
+  await enforceMinResponseTime(startTime);
+
+  return GENERIC_RESPONSE;
+};
+
+/**
+ * Verify Company Reset OTP — Step 2.
+ *
+ * Validates the submitted 6-digit OTP against the stored (hashed) record.
+ * Marks it as "verified" so the reset-password step can confirm it.
+ *
+ * Security: Generic messages on failure — no leakage of OTP state.
+ */
+export const verifyCompanyResetOtp = async (
+  data: CompanyVerifyResetOtpInput,
+): Promise<CompanyMessageResult> => {
+  const company = await prisma.company.findUnique({ where: { email: data.email } });
+
+  if (!company) {
+    // Uniform failure message — do not reveal whether email exists
+    throw new ApiError(400, "Invalid or expired OTP.");
+  }
+
+  await companyOtpService.verifyOtp(
+    company.companyId,
+    data.otp,
+    OtpType.RESET_PASSWORD,
+  );
+
+  return { message: "OTP verified. You may now reset your password." };
+};
+
+/**
+ * Reset Company Password — Step 3.
+ *
+ * Requires a verified OTP to exist (from step 2).
+ * Hashes the new password and updates the Company record.
+ * Consumes (invalidates) the OTP after success so it cannot be reused.
+ */
+export const resetCompanyPassword = async (
+  data: CompanyResetPasswordInput,
+): Promise<CompanyMessageResult> => {
+  const company = await prisma.company.findUnique({ where: { email: data.email } });
+
+  if (!company) {
+    throw new ApiError(400, "Invalid request. Please restart the password reset flow.");
+  }
+
+  // All critical operations run inside a transaction to prevent a race condition
+  // where two concurrent reset requests both find the same verified OTP, both
+  // update the password to different values, and one OTP is never consumed.
+  await prisma.$transaction(async (tx) => {
+    // Confirm a verified, non-consumed OTP exists — throws if not
+    const verifiedOtp = await tx.companyOtp.findFirst({
+      where: {
+        companyId: company.companyId,
+        type: OtpType.RESET_PASSWORD,
+        isVerified: true,
+        isUsed: false,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!verifiedOtp) {
+      throw new ApiError(400, "No verified OTP found. Please complete the OTP verification step first.");
+    }
+
+    if (verifiedOtp.expiresAt.getTime() < Date.now()) {
+      throw new ApiError(400, "Verified OTP has expired. Please restart the password reset flow.");
+    }
+
+    // Consume the verified OTP immediately — this is the critical guard
+    // against concurrent reset attempts with the same OTP.
+    await tx.companyOtp.update({
+      where: { id: verifiedOtp.id },
+      data: { isUsed: true },
+    });
+
+    // Hash and persist the new password
+    const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+    await tx.company.update({
+      where: { companyId: company.companyId },
+      data: { password: hashedPassword },
+    });
+
+    // Belt-and-suspenders: invalidate ALL remaining OTPs for this company
+    await tx.companyOtp.updateMany({
+      where: { companyId: company.companyId, type: OtpType.RESET_PASSWORD, isUsed: false },
+      data: { isUsed: true },
+    });
+  });
+
+  return { message: "Password reset successful. You can now log in with your new password." };
+};
+
+
 
 const findAdminByEmail = async (email: string) => {
   const user = await prisma.user.findUnique({ where: { email } });

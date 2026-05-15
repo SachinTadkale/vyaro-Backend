@@ -1,7 +1,6 @@
 /**
  * Module: Company Auth.types
- * Purpose: Implements the Company Auth.types module for FarmZy.
- * Note: Documentation-only change; behavior remains unchanged.
+ * Purpose: Type definitions for Company Auth module, including password reset flow.
  */
 export interface RegisterCompanyInput {
   companyName: string;
@@ -15,4 +14,25 @@ export interface RegisterCompanyInput {
 export interface CompanyPasswordLoginInput {
   registrationNo: string;
   password: string;
+}
+
+// ─── Password Reset Flow Types ────────────────────────────────────────────────
+
+export interface CompanyForgotPasswordInput {
+  email: string;
+}
+
+export interface CompanyVerifyResetOtpInput {
+  email: string;
+  otp: string;
+}
+
+export interface CompanyResetPasswordInput {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface CompanyMessageResult {
+  message: string;
 }

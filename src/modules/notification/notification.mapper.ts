@@ -141,6 +141,45 @@ export const dispatchNotificationEmail = async (
       });
       return;
 
+    case NotificationEventType.COMPANY_APPROVED:
+      await sendApprovalEmail(
+        requireEmail(payload.company?.email),
+        payload.company?.name ?? "there"
+      );
+      return;
+
+    case NotificationEventType.COMPANY_REJECTED:
+      await sendRejectionEmail(
+        requireEmail(payload.company?.email),
+        payload.company?.name ?? "there",
+        typeof payload.metadata?.reason === "string"
+          ? payload.metadata.reason
+          : undefined
+      );
+      return;
+
+    case NotificationEventType.COMPANY_REGISTERED:
+      await sendEventNotificationEmail({
+        to: requireEmail(payload.company?.email),
+        subject: "Welcome to Farmzy",
+        audience: "COMPANY",
+        eventLabel: "Registration complete",
+        title: "Your company workspace is ready",
+        summary:
+          "Your company account has been created successfully and is now pending verification.",
+        introLines: [
+          "Please upload your GST and License documents if you haven't already.",
+          "Our team will review and approve your account shortly.",
+        ],
+        details: [
+          { label: "Company Name", value: payload.company?.name },
+          { label: "Email", value: payload.company?.email },
+        ],
+        actions: buildActions(payload),
+        tone: "success",
+      });
+      return;
+
     case NotificationEventType.LISTING_CREATED:
       await sendEventNotificationEmail({
         to: requireEmail(payload.user?.email),

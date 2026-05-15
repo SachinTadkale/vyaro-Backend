@@ -253,6 +253,7 @@ model Company {
   orders       Order[]
   payments     Payment[]
   transactions Transaction[] @relation("CompanyTransactions")
+  otps         CompanyOtp[]
 }
 
 model Inventory {
@@ -670,4 +671,21 @@ model TranslationDictionary {
   createdAt  DateTime @default(now())
 
   @@index([key])
+}
+
+model CompanyOtp {
+  id         String   @id @default(uuid())
+  companyId  String
+  code       String
+  type       OtpType
+  isUsed     Boolean  @default(false)
+  isVerified Boolean  @default(false)
+  attempts   Int      @default(0)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([companyId])
 }

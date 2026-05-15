@@ -412,7 +412,18 @@ export const approveCompany = async (companyId: string) => {
     },
   });
 
-  return { message: "Company approved successfully" };
+  return {
+    message: "Company approved successfully",
+    notificationPayload: company.email
+      ? {
+          company: {
+            id: company.companyId,
+            name: company.companyName,
+            email: company.email,
+          },
+        }
+      : undefined,
+  };
 };
 
 /**
@@ -440,7 +451,21 @@ export const rejectCompany = async (companyId: string) => {
     },
   });
 
-  return { message: "Company rejected successfully" };
+  return {
+    message: "Company rejected successfully",
+    notificationPayload: company.email
+      ? {
+          company: {
+            id: company.companyId,
+            name: company.companyName,
+            email: company.email,
+          },
+          metadata: {
+            reason: "Company documents did not meet verification standards.",
+          },
+        }
+      : undefined,
+  };
 };
 
 /**

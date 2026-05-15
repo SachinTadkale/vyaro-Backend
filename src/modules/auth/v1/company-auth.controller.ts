@@ -1,7 +1,6 @@
 /**
  * Module: Company Auth.controller
- * Purpose: Implements the Company Auth.controller module for FarmZy.
- * Note: Documentation-only change; behavior remains unchanged.
+ * Purpose: HTTP layer for Company Auth — register, login, logout, and password reset flow.
  */
 import { Request, Response } from "express";
 import * as service from "../auth.service";
@@ -11,22 +10,33 @@ import ApiError from "../../../utils/apiError";
 import asyncHandler from "../../../utils/asyncHandler";
 import {
   companyLoginSchema,
+  companyForgotPasswordSchema,
+  companyVerifyResetOtpSchema,
+  companyResetPasswordSchema,
   registerCompanySchema,
   uploadCompanyDocumentsSchema,
   validateSchema,
 } from "../company-auth.validation";
-
+import notificationService from "../../notification/notification.service";
+import { NotificationEventType } from "../../notification/notification.types";
 /**
  * Register Company.
  */
 export const registerCompany = asyncHandler(
   async (req: Request, res: Response) => {
     const payload = validateSchema(registerCompanySchema, req.body);
-    const company = await service.registerCompany(payload);
+    const result = await service.registerCompany(payload);
+
+    if (result.notificationPayload) {
+      void notificationService.sendNotification(
+        NotificationEventType.COMPANY_REGISTERED,
+        result.notificationPayload
+      );
+    }
 
     res.status(201).json({
       success: true,
-      data: company,
+      data: result.company,
     });
   },
 );
@@ -111,3 +121,66 @@ export const logoutCompany = asyncHandler(
     });
   },
 );
+
+/* -------------------------------------------------------------------------- */
+/*                        COMPANY PASSWORD RESET                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Forgot Password — Step 1.
+ * POST /auth/company/forgot-password
+ *
+ * Accepts { email }. Always returns a generic success response to prevent
+ * account enumeration, even if the email does not exist.
+ */
+export const forgotCompanyPassword = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = validateSchema(companyForgotPasswordSchema, req.body);
+    const result = await service.forgotCompanyPassword(payload);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  },
+);
+
+/**
+ * Verify Reset OTP — Step 2.
+ * POST /auth/company/verify-reset-otp
+ *
+ * Accepts { email, otp }. Validates the OTP and marks it as verified.
+ * The reset-password step (step 3) requires this to have been completed.
+ */
+export const verifyCompanyResetOtp = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = validateSchema(companyVerifyResetOtpSchema, req.body);
+    const result = await service.verifyCompanyResetOtp(payload);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  },
+);
+
+/**
+ * Reset Password — Step 3.
+ * POST /auth/company/reset-password
+ *
+ * Accepts { email, otp, newPassword }.
+ * Requires a verified OTP from step 2. Hashes and updates the password,
+ * then invalidates all OTPs for this company to prevent replay.
+ */
+export const resetCompanyPassword = asyncHandler(
+  async (req: Request, res: Response) => {
+    const payload = validateSchema(companyResetPasswordSchema, req.body);
+    const result = await service.resetCompanyPassword(payload);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  },
+);
+
