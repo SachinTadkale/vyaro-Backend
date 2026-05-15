@@ -36,17 +36,17 @@ export const uploadKycService = async (
   });
 };
 
+import { uploadToCloudinary } from "../../config/cloudinary";
+
 /**
  * Update Profile Image.
  */
 export const updateProfileImage = async (userId: string, file: any) => {
-  const upload = await cloudinary.uploader.upload(file.path, {
-    folder: "profile_images",
-  });
+  const upload = await uploadToCloudinary(file.path, "profile_images");
 
   return prisma.user.update({
     where: { user_id: userId },
-    data: { profileImage: upload.secure_url },
+    data: { profileImage: upload.url },
     select: {
       user_id: true,
       name: true,
