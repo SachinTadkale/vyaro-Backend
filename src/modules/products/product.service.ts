@@ -272,11 +272,22 @@ export const getMyProducts = async (userId: string) => {
       unit: true,
       productImage: true,
       userId: true,
+      listings: {
+        where: { status: "ACTIVE" },
+        select: { listingId: true },
+        take: 1,
+      },
     },
   });
 
+  const productsWithListedStatus = products.map((p) => ({
+    ...p,
+    isListed: p.listings.length > 0,
+    listings: undefined, // cleanup
+  }));
+
   // Enrich all products with translations in parallel
-  return enrichProductsWithTranslations(products);
+  return enrichProductsWithTranslations(productsWithListedStatus as any);
 };
 
 // ─── UPDATE PRODUCT ───────────────────────────────────────────────────────────

@@ -6,9 +6,10 @@
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { verifiedOnly } from "../../../middleware/verification.middleware";
-import { uploadKYC } from "./user.controller";
+import { uploadKYC, updateProfileImage } from "./user.controller";
 import { upload } from "../../../middleware/upload.middleware";
 import { createRateLimiter } from "../../../middleware/rateLimit.middleware";
+import prisma from "../../../config/prisma";
 
 const router = Router();
 const userUploadLimiter = createRateLimiter({
@@ -35,6 +36,18 @@ router.post(
 );
 
 /**
+ * Update Profile Image
+ * PATCH /api/user/profile-image
+ */
+router.patch(
+  "/profile-image",
+  authMiddleware,
+  userUploadLimiter,
+  upload.single("image"),
+  updateProfileImage
+);
+
+/**
  * User Dashboard
  * GET /api/user/dashboard
  */
@@ -43,11 +56,23 @@ router.get(
   authMiddleware,
   verifiedOnly,
   userReadLimiter,
-  (req: any, res) => {
+  async (req: any, res) => {
+    const dbUser = await prisma.user.findUnique({
+      where: { user_id: req.user.userId },
+      select: {
+        user_id: true,
+        name: true,
+        email: true,
+        role: true,
+        profileImage: true,
+        verificationStatus: true,
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: "Dashboard access granted",
-      user: req.user,
+      user: dbUser || req.user,
     });
   }
 );
