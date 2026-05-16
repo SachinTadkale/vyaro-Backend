@@ -14,9 +14,9 @@ export const adminOnly = (
   res: Response,
   next: NextFunction
 ) => {
-  if (req.user.role !== UserRole.ADMIN) {
+  if (!req.user || (req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.OWNER)) {
     return res.status(403).json({
-      message: "Admin access required",
+      message: "Admin or Owner access required",
     });
   }
 

@@ -51,7 +51,7 @@ export const requireDeliveryAccess = (
     const accessChecks: Record<DeliveryAccessRole, boolean> = {
       COMPANY: req.user?.role === UserRole.COMPANY,
       DELIVERY_PARTNER: req.user?.role === UserRole.DELIVERY_PARTNER,
-      ADMIN: req.user?.role === UserRole.ADMIN,
+      ADMIN: req.user?.role === UserRole.ADMIN || req.user?.role === UserRole.OWNER,
     };
 
     const hasAccess = allowedAccess.some((access) => accessChecks[access]);
