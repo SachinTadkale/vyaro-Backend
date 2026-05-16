@@ -9,6 +9,8 @@ import {
   getMyProducts,
   updateProduct,
   deleteProduct,
+  getProductUnits,
+  getCategoriesWithUnits,
 } from "./product.controller";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { verifiedOnly } from "../../../middleware/verification.middleware";
@@ -63,6 +65,22 @@ router.delete(
   verifiedOnly,
   productWriteLimiter,
   deleteProduct
+);
+
+router.get(
+  "/meta/units",
+  authMiddleware,
+  verifiedOnly,
+  productReadLimiter,
+  getProductUnits
+);
+
+router.get(
+  "/meta/categories-units",
+  authMiddleware,
+  verifiedOnly,
+  productReadLimiter,
+  getCategoriesWithUnits
 );
 
 export default router;
