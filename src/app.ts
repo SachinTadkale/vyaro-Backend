@@ -16,6 +16,7 @@ import { langMiddleware } from "./middleware/lang.middleware";
 import { initMarketRatesCron } from "./modules/market-rates/v1/market-rate.cron";
 import { initDeliveryCron } from "./cron/delivery.cron";
 import { globalRouteGuard } from "./middleware/route-guard.middleware";
+import { precomputeAppConfigSnapshot } from "./modules/app-config/v1/app-config.controller";
 
 const API_PREFIX = "/api/v1";
 const expressApp = express();
@@ -104,5 +105,10 @@ expressApp.use(requestLogger);
 // 1. Initialize runtime-controlled cron jobs
 initMarketRatesCron();
 initDeliveryCron();
+
+// 2. Warm up App Config cache on server boot (populated asynchronously)
+precomputeAppConfigSnapshot().catch((err) => {
+  console.error("Failed to warm up App Config cache on boot:", err.message);
+});
 
 export default expressApp;

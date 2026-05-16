@@ -1,19 +1,31 @@
 import { Request, Response } from "express";
 import { getRedisClient } from "../../../config/redis";
 import { systemSettingsService } from "../../system-settings/v1/system-setting.service";
-import {
-  APPCONFIG_CACHE_KEY,
-  APPCONFIG_CACHE_TTL,
-  SystemSettingKey,
-} from "../../system-settings/v1/system-setting.types";
+import { SystemSettingKey } from "../../system-settings/v1/system-setting.types";
+import { logger } from "../../../utils/logger";
 
-/** Shape of the /app-config response */
+// ── Cache Configurations ──────────────────────────────────────────────────
+const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_REDIS_KEY = "APP_CONFIG:SNAPSHOT:v1";
+const REBUILD_LOCK_KEY = "LOCK:APP_CONFIG_REBUILD";
+const MEMORY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// ── Shared Memory States ──────────────────────────────────────────────────
+let localAppConfigCache: any = null;
+let localAppConfigCacheExpiresAt = 0;
+let lastRebuildTimestamp = "";
+let isRebuilding = false;
+let debounceTimeout: NodeJS.Timeout | null = null;
+
+/** Shape of the /app-config features */
 interface FeatureConfig {
   enabled: boolean;
   visible: boolean;
 }
 
 interface AppConfigResponse {
+  version:         number;
+  generatedAt:     string;
   maintenanceMode: boolean;
   readOnlyMode:    boolean;
   features: {
@@ -27,31 +39,147 @@ interface AppConfigResponse {
     qr:           FeatureConfig;
     myCrops:      FeatureConfig;
   };
-  _cachedAt: string;
 }
 
 /**
  * GET /api/v1/app-config
  *
- * Public endpoint — no authentication required.
- * Returns the current feature flag + UI visibility state for all modules.
- *
- * Response is cached in Redis for 5 minutes (APPCONFIG_CACHE_TTL).
- * Cache is invalidated immediately whenever any SystemSetting is updated.
+ * Public remote-configuration endpoint.
+ * Serves dynamic system settings and feature toggles in sub-milliseconds.
  */
 export const getAppConfig = async (_req: Request, res: Response) => {
   try {
-    // ── Redis cache read ──────────────────────────────────────────────────────
+    const now = Date.now();
+
+    // 1. First Layer: Ultra-fast Memory Cache (takes <1ms)
+    if (localAppConfigCache && now < localAppConfigCacheExpiresAt) {
+      return res.json({
+        success: true,
+        data: localAppConfigCache,
+        _source: "memory",
+      });
+    }
+
+    // 2. Second Layer: Redis Cache Fallback (takes <5ms)
     const redis = getRedisClient();
     if (redis) {
-      const cached = await redis.get(APPCONFIG_CACHE_KEY).catch(() => null);
-      if (cached) {
-        const parsed = (typeof cached === "string" ? JSON.parse(cached) : cached) as AppConfigResponse;
-        return res.json({ success: true, data: parsed, _source: "cache" });
+      try {
+        const cached = await redis.get(SNAPSHOT_REDIS_KEY).catch(() => null);
+        if (cached) {
+          const parsed = (typeof cached === "string" ? JSON.parse(cached) : cached) as AppConfigResponse;
+          
+          // Hydrate memory cache safely using frozen deep clones to prevent mutations
+          localAppConfigCache = Object.freeze(structuredClone(parsed));
+          localAppConfigCacheExpiresAt = Date.now() + MEMORY_CACHE_TTL_MS;
+
+          logger.info({ message: "App Config cache hit from Redis snapshot", key: SNAPSHOT_REDIS_KEY });
+          return res.json({
+            success: true,
+            data: localAppConfigCache,
+            _source: "redis",
+          });
+        }
+      } catch (err: any) {
+        logger.warn({ message: "Redis read failed in app-config, falling back to database fetch", error: err.message });
       }
     }
 
-    // ── Build config from SystemSetting ──────────────────────────────────────
+    logger.info("App Config cache miss - loading from database snapshot rebuild");
+
+    // 3. Third Layer: Fallback Database Precomputation
+    const config = await precomputeAppConfigSnapshot();
+    if (config) {
+      return res.json({
+        success: true,
+        data: config,
+        _source: "db",
+      });
+    }
+
+    // 4. Absolute Final Safe-Defaults Fallback (Prevents breaking the client if DB/Redis fail concurrently)
+    const fallback = buildFallbackConfig();
+    return res.json({
+      success: true,
+      data: fallback,
+      _source: "fallback",
+    });
+  } catch (error: any) {
+    logger.error({ message: "Critical failure in getAppConfig route handler", error: error.message });
+    res.status(200).json({
+      success: true,
+      data: buildFallbackConfig(),
+      _source: "fallback_err",
+    });
+  }
+};
+
+/**
+ * GET /api/v1/admin/runtime-health
+ *
+ * Operational health dashboard endpoint. Exposes metadata regarding caches and replication status.
+ */
+export const getRuntimeHealth = async (_req: Request, res: Response) => {
+  const redis = getRedisClient();
+  const redisConnected = Boolean(redis);
+  
+  const now = Date.now();
+  const memoryCacheSet = Boolean(localAppConfigCache);
+  const memoryCacheExpired = now >= localAppConfigCacheExpiresAt;
+  const memoryCacheState = !memoryCacheSet 
+    ? "empty" 
+    : memoryCacheExpired 
+      ? "expired" 
+      : "active";
+
+  const timeRemainingSeconds = memoryCacheSet && !memoryCacheExpired
+    ? Math.max(0, Math.round((localAppConfigCacheExpiresAt - now) / 1000))
+    : 0;
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      snapshotVersion: SNAPSHOT_VERSION,
+      generatedAt: localAppConfigCache?.generatedAt || null,
+      lastRebuildTimestamp,
+      redisConnected,
+      redisSnapshotKey: SNAPSHOT_REDIS_KEY,
+      memoryCacheState,
+      memoryCacheTtlSeconds: MEMORY_CACHE_TTL_MS / 1000,
+      memoryCacheRemainingSeconds: timeRemainingSeconds,
+      hasRebuildInProgress: isRebuilding,
+    }
+  });
+};
+
+/**
+ * Precompute the full remote config snapshot.
+ * Protected by cross-instance distributed rebuild locks and local single-flight locks.
+ */
+export const precomputeAppConfigSnapshot = async (): Promise<AppConfigResponse | null> => {
+  // Local single-flight lock
+  if (isRebuilding) {
+    logger.debug("Snapshot precomputation skipped: local single-flight rebuild already in progress");
+    return null;
+  }
+
+  const redis = getRedisClient();
+  let acquiredLock = false;
+
+  try {
+    isRebuilding = true;
+
+    // Cross-instance distributed single-flight lock
+    if (redis) {
+      const lock = await redis.set(REBUILD_LOCK_KEY, "locked", { nx: true, ex: 15 }).catch(() => null);
+      if (!lock) {
+        logger.debug("Snapshot precomputation skipped: concurrent distributed rebuild in progress");
+        return null;
+      }
+      acquiredLock = true;
+    }
+
+    logger.info("🔄 Precomputing dynamic App Config snapshot...");
+
     const [
       maintenanceMode,
       readOnlyMode,
@@ -89,6 +217,8 @@ export const getAppConfig = async (_req: Request, res: Response) => {
     ]);
 
     const config: AppConfigResponse = {
+      version: SNAPSHOT_VERSION,
+      generatedAt: new Date().toISOString(),
       maintenanceMode,
       readOnlyMode,
       features: {
@@ -102,30 +232,56 @@ export const getAppConfig = async (_req: Request, res: Response) => {
         qr:          { enabled: enableQR,          visible: visibleQR          },
         myCrops:     { enabled: enableMyCrops,     visible: visibleMyCrops     },
       },
-      _cachedAt: new Date().toISOString(),
     };
 
-    // ── Cache the built config ────────────────────────────────────────────────
+    // Save to Redis key permanently
     if (redis) {
-      await redis
-        .set(APPCONFIG_CACHE_KEY, JSON.stringify(config), { ex: APPCONFIG_CACHE_TTL })
-        .catch(() => {});
+      await redis.set(SNAPSHOT_REDIS_KEY, JSON.stringify(config)).catch((err) => {
+        logger.warn({ message: "Failed writing App Config snapshot to Redis", error: err.message });
+      });
     }
 
-    res.json({ success: true, data: config, _source: "db" });
-  } catch (e: any) {
-    // Return safe fallback on error — never crash the app
-    res.status(200).json({
-      success: true,
-      data:    buildFallbackConfig(),
-      _source: "fallback",
-    });
+    // Freeze snapshot inside memory cache to protect from reference corruption
+    localAppConfigCache = Object.freeze(structuredClone(config));
+    localAppConfigCacheExpiresAt = Date.now() + MEMORY_CACHE_TTL_MS;
+    
+    lastRebuildTimestamp = new Date().toISOString();
+    logger.info({ message: "✅ App Config snapshot regenerated and cached successfully", version: SNAPSHOT_VERSION });
+
+    return config;
+  } catch (error: any) {
+    logger.error({ message: "❌ Failed to precompute app config snapshot", error: error.message });
+    return null;
+  } finally {
+    isRebuilding = false;
+    if (redis && acquiredLock) {
+      await redis.del(REBUILD_LOCK_KEY).catch(() => {});
+    }
   }
 };
 
-/** Safe defaults used when /app-config itself fails */
+/**
+ * Debounces snapshot rebuild calls.
+ * Collapses rapid sequential triggers into a single precomputation run.
+ */
+export const debouncedPrecomputeAppConfigSnapshot = () => {
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout);
+  }
+  debounceTimeout = setTimeout(async () => {
+    try {
+      await precomputeAppConfigSnapshot();
+    } catch (err: any) {
+      logger.error({ message: "Error running debounced app config rebuild", error: err.message });
+    }
+  }, 250); // 250ms debounce window
+};
+
+/** Safe fallback defaults used when database/Redis connectivity is fully broken */
 function buildFallbackConfig(): AppConfigResponse {
   return {
+    version: SNAPSHOT_VERSION,
+    generatedAt: new Date().toISOString(),
     maintenanceMode: false,
     readOnlyMode:    false,
     features: {
@@ -139,6 +295,11 @@ function buildFallbackConfig(): AppConfigResponse {
       qr:          { enabled: false, visible: false },
       myCrops:     { enabled: true,  visible: true  },
     },
-    _cachedAt: new Date().toISOString(),
   };
 }
+
+// Bind active callback so setting/route updates instantly rebuild memory and Redis cache
+systemSettingsService.registerOnChange(async () => {
+  logger.info("System setting or route toggle modified. Triggering debounced precomputed snapshot rebuild...");
+  debouncedPrecomputeAppConfigSnapshot();
+});
