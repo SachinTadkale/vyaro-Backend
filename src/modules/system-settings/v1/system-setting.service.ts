@@ -16,10 +16,7 @@ const routeRepo   = new RouteToggleRepository();
 export class SystemSettingService {
   // ─── System Settings ────────────────────────────────────────────────────────
 
-  async seedDefaults() {
-    await settingRepo.seedDefaults();
-    await this.refreshSettingsCache();
-  }
+
 
   async getAll() {
     return settingRepo.findAll();
@@ -65,6 +62,36 @@ export class SystemSettingService {
     await this.invalidateAppConfigCache();
 
     return updated;
+  }
+
+  async createSetting(data: {
+    key:         string;
+    value:       string;
+    displayName: string;
+    description: string;
+    category:    "FEATURE" | "CRON" | "INTEGRATION" | "MAINTENANCE";
+    groupKey:    string;
+    isCritical:  boolean;
+    createdById: string;
+  }) {
+    const existing = await settingRepo.findByKey(data.key);
+    if (existing) throw new Error(`Setting ${data.key} already exists`);
+
+    const setting = await settingRepo.upsertByKey(data);
+    
+    // Create creation audit
+    await settingRepo.createAudit({
+      settingKey:  setting.key,
+      settingId:   setting.id,
+      oldValue:    "NOT_EXIST",
+      newValue:    setting.value,
+      changedById: data.createdById,
+      reason:      "Initial creation via admin UI",
+    });
+
+    await this.setSettingCache(setting.key, setting.value);
+    await this.invalidateAppConfigCache();
+    return setting;
   }
 
   /**
@@ -129,7 +156,9 @@ export class SystemSettingService {
     displayName?: string;
     description?: string;
     groupKey?:    string;
+    moduleKey?:   string;
     isCritical?:  boolean;
+    createdById?: string;
   }) {
     const toggle = await routeRepo.create(data);
     await this.setRouteCache(toggle.method, toggle.path, toggle.enabled);
@@ -171,6 +200,37 @@ export class SystemSettingService {
 
   async getRouteToggleAudits(routeToggleId: string) {
     return routeRepo.findAudits(routeToggleId);
+  }
+
+  // ─── Bulk Operations ───────────────────────────────────────────────────────
+
+  async bulkToggleModule(moduleKey: string, enabled: boolean, changedById: string) {
+    // 1. Find all routes and settings belonging to this module
+    const allRoutes = await routeRepo.findAll();
+    const allSettings = await settingRepo.findAll();
+
+    const moduleRoutes = allRoutes.filter(r => r.moduleKey === moduleKey || r.groupKey === moduleKey);
+    const moduleSettings = allSettings.filter(s => s.groupKey === moduleKey && s.type === "BOOLEAN");
+
+    // 2. Toggle all routes
+    for (const route of moduleRoutes) {
+      if (route.enabled !== enabled) {
+        await this.updateRouteToggleById(route.id, enabled, changedById, `Bulk module toggle for ${moduleKey}`);
+      }
+    }
+
+    // 3. Toggle all settings
+    for (const setting of moduleSettings) {
+      if ((setting.value === "true") !== enabled) {
+        await this.updateById(setting.id, enabled ? "true" : "false", changedById, `Bulk module toggle for ${moduleKey}`);
+      }
+    }
+
+    return {
+      message: `Toggled ${moduleRoutes.length} routes and ${moduleSettings.length} settings in module ${moduleKey}`,
+      routesCount: moduleRoutes.length,
+      settingsCount: moduleSettings.length
+    };
   }
 
   /**

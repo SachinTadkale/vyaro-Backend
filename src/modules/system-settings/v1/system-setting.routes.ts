@@ -13,6 +13,8 @@ import {
   updateRouteToggleById,
   deleteRouteToggle,
   getRouteToggleAudits,
+  createSetting,
+  bulkToggleModule,
 } from "./system-setting.controller";
 
 const router = Router();
@@ -32,7 +34,11 @@ router.use(authMiddleware, requireOwnerAccess);
 // ─── System Settings (Static) ────────────────────────────────────────────────
 router.get   ("/audits",      getSettingAudits);
 router.get   ("/",            getAllSettings);
+router.post  ("/",            createSetting);
 router.patch ("/key/:key",    updateSettingByKey);
+
+// ─── Bulk Modules ──────────────────────────────────────────────────────────
+router.patch ("/modules/:moduleKey/toggle", bulkToggleModule);
 
 // ─── Route Toggles ─────────────────────────────────────────────────────────
 router.get    ("/routes",              getAllRouteToggles);

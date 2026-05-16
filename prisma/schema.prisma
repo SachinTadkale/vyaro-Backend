@@ -783,6 +783,13 @@ enum SettingCategory {
   INTEGRATION
 }
 
+enum CreatedSource {
+  SYSTEM_BOOTSTRAP
+  ADMIN_PANEL
+  MIGRATION
+  API
+}
+
 model SystemSetting {
   id              String          @id @default(cuid())
 
@@ -800,6 +807,8 @@ model SystemSetting {
   isCritical      Boolean         @default(false)
   isVisible       Boolean         @default(true)
   requiresRestart Boolean         @default(false)
+  isSeededBySystem Boolean        @default(true)
+  createdSource   CreatedSource?
 
   updatedById     String?
   updatedBy       User?           @relation("SettingUpdatedBy", fields: [updatedById], references: [user_id])
@@ -848,16 +857,23 @@ model RouteToggle {
   displayName String?
   description String?
   groupKey    String?
+  moduleKey   String?
 
   isCritical  Boolean  @default(false)
 
+  isSeededBySystem Boolean        @default(true)
+  createdSource   CreatedSource?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  createdById String?
 
   audits      RouteToggleAudit[]
 
   @@unique([method, path])
   @@index([groupKey])
+  @@index([moduleKey])
   @@index([enabled])
 }
 
