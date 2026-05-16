@@ -123,3 +123,41 @@ export const deleteProduct = asyncHandler(
     });
   },
 );
+
+//////////////////////////////////////
+// GET PRODUCT UNITS
+//////////////////////////////////////
+
+/**
+ * Get Available Product Units.
+ */
+export const getProductUnits = asyncHandler(
+  async (req: Request, res: Response) => {
+    const units = productService.getProductUnits();
+
+    res.status(200).json({
+      success: true,
+      data: units,
+      meta: { lang: req.lang },
+    });
+  },
+);
+
+//////////////////////////////////////
+// GET CATEGORIES WITH UNITS
+//////////////////////////////////////
+
+/**
+ * Get Product Categories and their Allowed Units.
+ */
+export const getCategoriesWithUnits = asyncHandler(
+  async (req: Request, res: Response) => {
+    const categories = productService.getCategoriesWithUnits();
+
+    res.status(200).json({
+      success: true,
+      data: categories,
+      meta: { lang: req.lang },
+    });
+  },
+);

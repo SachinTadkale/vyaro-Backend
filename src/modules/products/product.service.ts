@@ -1,25 +1,14 @@
 /**
  * Module: Product.service
  * Purpose: Implements the Product.service module for FarmZy.
- *
- * i18n Integration:
- *  - createProduct: triggers background translation of productName + category
- *    (stored in TranslationDictionary for reuse across all users)
- *  - getMyProducts: enriches each product with its translations (from dictionary/cache)
- *  - resolveProductForListing: translation-enriched results
- *  - updateProduct: re-translates on rename (upsert in dictionary)
- *
- * Rules:
- *  - productId, userId, unit → NEVER translated
- *  - productName, category    → ALWAYS translated (PRODUCT / CATEGORY type)
- *  - Translation failures     → gracefully degraded, product still returned
  */
-import { Prisma, VerificationStatus } from "@prisma/client";
+import { Prisma, VerificationStatus, ProductUnit, ProductCategory } from "@prisma/client";
 import prisma from "../../config/prisma";
 import ApiError from "../../utils/apiError";
 import { CreateProductDTO, UpdateProductDTO } from "./product.type";
 import { translateText } from "../../services/translation/translation.service";
 import { TranslationResult } from "../../services/translation/translation.interface";
+import { CATEGORY_UNIT_MAPPING, ALL_UNITS, ALL_CATEGORIES } from "./product.constants";
 
 // ─── Field Selection ─────────────────────────────────────────────────────────
 
@@ -35,8 +24,8 @@ const productSelection = {
 type ProductLookupRow = {
   productId: string;
   productName: string;
-  category: string;
-  unit: string;
+  category: ProductCategory;
+  unit: ProductUnit;
   productImage: string | null;
   userId: string;
 };
@@ -75,13 +64,11 @@ const buildNormalizedContains = (columnName: string, value: string) => Prisma.sq
 
 const findExactProductMatch = async (input: {
   productName: string;
-  category?: string;
-  unit?: string;
+  category?: ProductCategory;
+  unit?: ProductUnit;
   excludeProductId?: string;
 }) => {
   const normalizedName = normalizeText(input.productName);
-  const normalizedCategory = input.category ? normalizeText(input.category) : undefined;
-  const normalizedUnit = input.unit ? cleanText(input.unit) : undefined;
 
   const rows = await prisma.$queryRaw<ProductLookupRow[]>(Prisma.sql`
     SELECT
@@ -93,16 +80,15 @@ const findExactProductMatch = async (input: {
       "userId"
     FROM "Product"
     WHERE ${buildNormalizedEquals('"productName"', normalizedName)}
-      ${normalizedCategory
-        ? Prisma.sql`AND ${buildNormalizedEquals('"category"', normalizedCategory)}`
+      ${input.category
+        ? Prisma.sql`AND "category" = ${input.category}::"ProductCategory"`
         : Prisma.empty}
-      ${normalizedUnit
-        ? Prisma.sql`AND lower(trim("unit")) = lower(${normalizedUnit})`
+      ${input.unit
+        ? Prisma.sql`AND "unit" = ${input.unit}::"ProductUnit"`
         : Prisma.empty}
       ${input.excludeProductId
-        ? Prisma.sql`AND "productId" <> ${input.excludeProductId}`
+        ? Prisma.sql`AND "productId" != ${input.excludeProductId}`
         : Prisma.empty}
-    ORDER BY "createdAt" ASC
     LIMIT 1
   `);
 
@@ -111,13 +97,12 @@ const findExactProductMatch = async (input: {
 
 const findSimilarProducts = async (input: {
   productName: string;
-  category?: string;
+  category?: ProductCategory;
 }) => {
   const normalizedName = normalizeText(input.productName);
-  const normalizedCategory = input.category ? normalizeText(input.category) : undefined;
 
   return prisma.$queryRaw<
-    Array<{ productId: string; productName: string; category: string; unit: string }>
+    Array<{ productId: string; productName: string; category: ProductCategory; unit: ProductUnit }>
   >(Prisma.sql`
     SELECT
       "productId",
@@ -126,12 +111,24 @@ const findSimilarProducts = async (input: {
       "unit"
     FROM "Product"
     WHERE ${buildNormalizedContains('"productName"', normalizedName)}
-      ${normalizedCategory
-        ? Prisma.sql`AND ${buildNormalizedEquals('"category"', normalizedCategory)}`
+      ${input.category
+        ? Prisma.sql`AND "category" = ${input.category}::"ProductCategory"`
         : Prisma.empty}
     ORDER BY "productName" ASC
     LIMIT 5
   `);
+};
+
+// ─── Unit Validation ─────────────────────────────────────────────────────────
+
+const validateUnitForCategory = (category: ProductCategory, unit: ProductUnit) => {
+  const allowedUnits = CATEGORY_UNIT_MAPPING[category];
+  if (!allowedUnits || !allowedUnits.includes(unit)) {
+    throw new ApiError(
+      400,
+      `Invalid unit "${unit}" for category "${category}". Allowed units: ${allowedUnits.join(", ")}`
+    );
+  }
 };
 
 // ─── Translation Enrichment ───────────────────────────────────────────────────
@@ -143,10 +140,6 @@ type EnrichedProduct = ProductLookupRow & {
   };
 };
 
-/**
- * Enriches a product (or list of products) with dictionary/cache translations.
- * Failures are gracefully degraded — the product is always returned.
- */
 const enrichProductWithTranslations = async (
   product: ProductLookupRow
 ): Promise<EnrichedProduct> => {
@@ -170,15 +163,12 @@ const enrichProductsWithTranslations = async (
   return Promise.all(products.map(enrichProductWithTranslations));
 };
 
-// ─── Resolve Product For Listing ─────────────────────────────────────────────
+// ─── RESOLVE PRODUCT FOR LISTING ─────────────────────────────────────────────
 
-/**
- * Resolve Product For Listing.
- */
 export const resolveProductForListing = async (input: {
   productName: string;
-  category?: string;
-  unit?: string;
+  category?: ProductCategory;
+  unit?: ProductUnit;
 }) => {
   const normalizedName = normalizeText(input.productName);
   const product = await findExactProductMatch(input);
@@ -203,9 +193,6 @@ export const resolveProductForListing = async (input: {
 
 // ─── CREATE PRODUCT ───────────────────────────────────────────────────────────
 
-/**
- * Create Product.
- */
 export const createProduct = async (
   userId: string,
   data: CreateProductDTO,
@@ -213,41 +200,37 @@ export const createProduct = async (
 ) => {
   await ensureVerifiedProductCreator(userId);
 
+  validateUnitForCategory(data.category, data.unit);
+
   const existingProduct = await findExactProductMatch({
     productName: data.productName,
     category: data.category,
+    unit: data.unit,
   });
 
   if (existingProduct) {
     throw new ApiError(409, "Product already exists", {
       code: "PRODUCT_ALREADY_EXISTS",
-      details: {
-        productId: existingProduct.productId,
-        productName: existingProduct.productName,
-        category: existingProduct.category,
-      },
     });
   }
 
   const product = await prisma.product.create({
     data: {
       productName: cleanText(data.productName),
-      category: cleanText(data.category),
-      unit: cleanText(data.unit),
+      category: data.category,
+      unit: data.unit,
       productImage: imageUrl,
       userId,
     },
     select: productSelection,
   });
 
-  // Trigger translations (fire-and-forget — stored in dictionary for future GET calls)
-  // This runs AFTER the DB write so it never blocks the create response.
   Promise.all([
     translateText(product.productName, "PRODUCT"),
     translateText(product.category, "CATEGORY"),
-  ]).catch(() => {}); // non-critical — dictionary miss is always recovered on GET
+  ]).catch(() => {});
 
-  const enriched = await enrichProductWithTranslations(product);
+  const enriched = await enrichProductWithTranslations(product as ProductLookupRow);
 
   return {
     message: "Product created successfully",
@@ -257,10 +240,6 @@ export const createProduct = async (
 
 // ─── GET MY PRODUCTS ──────────────────────────────────────────────────────────
 
-/**
- * Get My Products.
- * Returns all products enriched with multilingual translations.
- */
 export const getMyProducts = async (userId: string) => {
   const products = await prisma.product.findMany({
     where: { userId },
@@ -283,18 +262,14 @@ export const getMyProducts = async (userId: string) => {
   const productsWithListedStatus = products.map((p) => ({
     ...p,
     isListed: p.listings.length > 0,
-    listings: undefined, // cleanup
+    listings: undefined,
   }));
 
-  // Enrich all products with translations in parallel
-  return enrichProductsWithTranslations(productsWithListedStatus as any);
+  return enrichProductsWithTranslations(productsWithListedStatus as ProductLookupRow[]);
 };
 
 // ─── UPDATE PRODUCT ───────────────────────────────────────────────────────────
 
-/**
- * Update Product.
- */
 export const updateProduct = async (
   productId: string,
   userId: string,
@@ -309,39 +284,41 @@ export const updateProduct = async (
     throw new ApiError(404, "Product Not Found");
   }
 
-  const nextProductName = data.productName ?? product.productName;
   const nextCategory = data.category ?? product.category;
+  const nextUnit = data.unit ?? product.unit;
+
+  validateUnitForCategory(nextCategory, nextUnit);
+
+  const nextProductName = data.productName ?? product.productName;
 
   const conflictingProduct = await findExactProductMatch({
     productName: nextProductName,
     category: nextCategory,
+    unit: nextUnit,
     excludeProductId: productId,
   });
 
   if (conflictingProduct) {
-    throw new ApiError(409, "Product already exists", {
-      code: "PRODUCT_ALREADY_EXISTS",
-    });
+    throw new ApiError(409, "Product already exists");
   }
 
   const updatedProduct = await prisma.product.update({
     where: { productId },
     data: {
       productName: cleanText(nextProductName),
-      category: cleanText(nextCategory),
-      unit: data.unit ? cleanText(data.unit) : product.unit,
+      category: nextCategory,
+      unit: nextUnit,
       productImage: imageUrl ?? product.productImage,
     },
     select: productSelection,
   });
 
-  // Re-translate on rename (upserts dictionary entry)
   Promise.all([
     translateText(updatedProduct.productName, "PRODUCT"),
     translateText(updatedProduct.category, "CATEGORY"),
   ]).catch(() => {});
 
-  const enriched = await enrichProductWithTranslations(updatedProduct);
+  const enriched = await enrichProductWithTranslations(updatedProduct as ProductLookupRow);
 
   return {
     message: "Product updated successfully",
@@ -351,9 +328,6 @@ export const updateProduct = async (
 
 // ─── DELETE PRODUCT ───────────────────────────────────────────────────────────
 
-/**
- * Delete Product.
- */
 export const deleteProduct = async (productId: string, userId: string) => {
   const product = await prisma.product.findUnique({
     where: { productId },
@@ -367,7 +341,18 @@ export const deleteProduct = async (productId: string, userId: string) => {
     where: { productId },
   });
 
-  return {
-    message: "Product deleted successfully",
-  };
+  return { message: "Product deleted successfully" };
+};
+
+// ─── Metadata Helpers ────────────────────────────────────────────────────────
+
+export const getProductUnits = () => {
+  return ALL_UNITS;
+};
+
+export const getCategoriesWithUnits = () => {
+  return ALL_CATEGORIES.map((cat) => ({
+    category: cat,
+    allowedUnits: CATEGORY_UNIT_MAPPING[cat],
+  }));
 };

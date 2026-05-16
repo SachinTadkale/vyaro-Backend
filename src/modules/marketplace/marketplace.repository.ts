@@ -3,7 +3,7 @@
  * Purpose: Implements the Marketplace.repository module for FarmZy.
  * Note: Documentation-only change; behavior remains unchanged.
  */
-import { ListingStatus, ListingType, Prisma } from "@prisma/client";
+import { ListingStatus, ListingType, Prisma, ProductUnit } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { getBoundingBox, haversineDistanceSql } from "./marketplace.geo";
 import {
@@ -70,7 +70,7 @@ export type ListingRecord = {
     productId: string;
     productName: string;
     category: string;
-    unit: string;
+    unit: ProductUnit;
     productImage: string | null;
   };
   seller: {
@@ -101,7 +101,7 @@ export type NearbyListingRow = {
   updatedAt: Date;
   productName: string;
   productCategory: string;
-  productUnit: string;
+  productUnit: ProductUnit;
   productImage: string | null;
   sellerName: string;
   sellerAddress: string;
@@ -376,7 +376,7 @@ export const findNearbyMarketplaceListings = async (
       ${distanceSql} AS "distanceKm"
     FROM "MarketListing" "ml"
     INNER JOIN "Product" "p" ON "p"."productId" = "ml"."productId"
-    INNER JOIN "FARMER" "u" ON "u"."user_id" = "ml"."sellerId"
+    INNER JOIN "User" "u" ON "u"."user_id" = "ml"."sellerId"
     LEFT JOIN "FarmDetails" "fd" ON "fd"."userId" = "u"."user_id"
     WHERE ${whereClause}
       AND ${distanceSql} <= ${radiusKm}
@@ -389,7 +389,7 @@ export const findNearbyMarketplaceListings = async (
     SELECT COUNT(*)::bigint AS "total"
     FROM "MarketListing" "ml"
     INNER JOIN "Product" "p" ON "p"."productId" = "ml"."productId"
-    INNER JOIN "Farmer" "u" ON "u"."user_id" = "ml"."sellerId"
+    INNER JOIN "User" "u" ON "u"."user_id" = "ml"."sellerId"
     LEFT JOIN "FarmDetails" "fd" ON "fd"."userId" = "u"."user_id"
     WHERE ${whereClause}
       AND ${distanceSql} <= ${radiusKm}

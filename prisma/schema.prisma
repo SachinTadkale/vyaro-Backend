@@ -176,6 +176,27 @@ enum VehicleType {
   HEAVY_TRUCK
 }
 
+enum ProductUnit {
+  KG
+  GRAM
+  DOZEN
+  CRATE
+  BOX
+  QUINTAL
+  TON
+  LITER
+  PIECE
+  BUNDLE
+}
+
+enum ProductCategory {
+  VEGETABLES
+  FRUITS
+  GRAINS
+  MILK
+  FLOWERS
+}
+
 //////////////////////
 // MODELS
 //////////////////////
@@ -271,8 +292,8 @@ model Inventory {
 model Product {
   productId    String   @id @default(uuid())
   productName  String
-  category     String
-  unit         String
+  category     ProductCategory
+  unit         ProductUnit
   productImage String?
   userId       String
   createdAt    DateTime @default(now())
@@ -328,8 +349,8 @@ model Order {
   finalPrice Float
 
   productName     String
-  productCategory String
-  productUnit     String
+  productCategory ProductCategory
+  productUnit     ProductUnit
 
   /// Snapshot of product/category translations at order time.
   /// Shape: { "name": { "en": "Tomato", "hi": "टमाटर", "mr": "टोमॅटो" }, "category": { ... } }
