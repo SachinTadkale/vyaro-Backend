@@ -217,6 +217,10 @@ model User {
   verificationStatus VerificationStatus @default(PENDING)
   registrationStep   Int                @default(1)
   profileImage       String?
+  location           String?
+  publicProfileId    String?            @unique
+  qrShareToken       String?            @unique
+  profileVisibility  Boolean            @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

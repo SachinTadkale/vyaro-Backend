@@ -54,3 +54,65 @@ export const updateProfileImage = async (userId: string, file: any) => {
     },
   });
 };
+
+/**
+ * Get Me / Profile
+ */
+export const getUserProfile = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { user_id: userId },
+    include: {
+      _count: {
+        select: {
+          products: true,
+          listings: { where: { status: "ACTIVE" } },
+        },
+      },
+      farmDetails: true,
+    },
+  });
+
+  if (!user) throw new ApiError(404, "User not found");
+
+  // Calculate order count separately as it's not a direct relation in User model (it is linked via listing, but we have sellerId in Order)
+  const orderCount = await prisma.order.count({
+    where: { sellerId: userId },
+  });
+
+  // Calculate total revenue from completed orders
+  const revenueResult = await prisma.order.aggregate({
+    where: { 
+      sellerId: userId,
+      orderStatus: "COMPLETED" 
+    },
+    _sum: {
+      finalPrice: true,
+    }
+  });
+
+  return {
+    ...user,
+    cropCount: user._count.products,
+    listingCount: user._count.listings,
+    orderCount,
+    revenue: revenueResult._sum.finalPrice || 0,
+  };
+};
+
+/**
+ * Update User Profile
+ */
+export const updateUserProfile = async (userId: string, data: { name?: string, location?: string, email?: string }) => {
+  return prisma.user.update({
+    where: { user_id: userId },
+    data,
+    select: {
+      user_id: true,
+      name: true,
+      location: true,
+      email: true,
+      profileImage: true,
+      verificationStatus: true,
+    }
+  });
+};

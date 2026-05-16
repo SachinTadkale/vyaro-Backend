@@ -6,7 +6,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../../../middleware/auth.middleware";
 import { verifiedOnly } from "../../../middleware/verification.middleware";
-import { uploadKYC, updateProfileImage } from "./user.controller";
+import { uploadKYC, updateProfileImage, getProfile, updateProfile } from "./user.controller";
 import { upload } from "../../../middleware/upload.middleware";
 import { createRateLimiter } from "../../../middleware/rateLimit.middleware";
 import prisma from "../../../config/prisma";
@@ -24,6 +24,40 @@ const userReadLimiter = createRateLimiter({
 });
 
 /**
+ * Get Current User Profile
+ * GET /api/v1/users/me
+ */
+router.get(
+  "/me",
+  authMiddleware,
+  userReadLimiter,
+  getProfile
+);
+
+/**
+ * Update Profile
+ * PATCH /api/v1/users/me
+ */
+router.patch(
+  "/me",
+  authMiddleware,
+  userUploadLimiter,
+  updateProfile
+);
+
+/**
+ * Upload Profile Avatar
+ * POST /api/v1/users/me/avatar
+ */
+router.post(
+  "/me/avatar",
+  authMiddleware,
+  userUploadLimiter,
+  upload.single("image"),
+  updateProfileImage
+);
+
+/**
  * Upload KYC
  * POST /api/user/upload-kyc
  */
@@ -38,6 +72,7 @@ router.post(
 /**
  * Update Profile Image
  * PATCH /api/user/profile-image
+ * @deprecated Use /me/avatar
  */
 router.patch(
   "/profile-image",

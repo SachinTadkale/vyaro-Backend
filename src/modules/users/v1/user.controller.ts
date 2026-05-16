@@ -45,3 +45,30 @@ export const updateProfileImage = asyncHandler(async (req: any, res: Response) =
     data: result,
   });
 });
+
+/**
+ * Get Current User Profile.
+ */
+export const getProfile = asyncHandler(async (req: any, res: Response) => {
+  const userId = req.user.userId;
+  const profile = await uploadKycService.getUserProfile(userId);
+
+  return res.status(200).json({
+    success: true,
+    data: profile,
+  });
+});
+
+/**
+ * Update Profile.
+ */
+export const updateProfile = asyncHandler(async (req: any, res: Response) => {
+  const userId = req.user.userId;
+  const result = await uploadKycService.updateUserProfile(userId, req.body);
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile updated successfully",
+    data: result,
+  });
+});
