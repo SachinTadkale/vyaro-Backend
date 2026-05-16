@@ -39,7 +39,7 @@ router.post(
   verifiedOnly,
   productWriteLimiter,
   upload.single("productImage"),
-  createProduct
+  createProduct,
 );
 
 router.get(
@@ -47,7 +47,7 @@ router.get(
   authMiddleware,
   verifiedOnly,
   productReadLimiter,
-  getMyProducts
+  getMyProducts,
 );
 
 router.patch(
@@ -56,7 +56,7 @@ router.patch(
   verifiedOnly,
   productWriteLimiter,
   upload.single("productImage"),
-  updateProduct
+  updateProduct,
 );
 
 router.delete(
@@ -64,7 +64,7 @@ router.delete(
   authMiddleware,
   verifiedOnly,
   productWriteLimiter,
-  deleteProduct
+  deleteProduct,
 );
 
 router.get(
@@ -72,7 +72,7 @@ router.get(
   authMiddleware,
   verifiedOnly,
   productReadLimiter,
-  getProductUnits
+  getProductUnits,
 );
 
 router.get(
@@ -80,7 +80,7 @@ router.get(
   authMiddleware,
   verifiedOnly,
   productReadLimiter,
-  getCategoriesWithUnits
+  getCategoriesWithUnits,
 );
 
 export default router;

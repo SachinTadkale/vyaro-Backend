@@ -15,6 +15,7 @@ import { requestLogger } from "./middleware/requestLogger";
 import { langMiddleware } from "./middleware/lang.middleware";
 import cron from "node-cron";
 import {expireDeliveries } from "./cron/delivery.cron";
+import { initMarketRatesCron } from "./modules/market-rates/v1/market-rate.cron";
 
 const API_PREFIX = "/api/v1";
 const expressApp = express();
@@ -98,5 +99,8 @@ cron.schedule("*/5 * * * *", async () => {
   console.log("Running delivery expiry...");
   await expireDeliveries();
 });
+
+// Initialize Market Rates Sync Cron
+initMarketRatesCron();
 
 export default expressApp;

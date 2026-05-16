@@ -25,6 +25,7 @@ import deliveryKycRoutes from "../modules/kyc/v1/delivery-kyc.routes";
 // Farming and marketplace routes.
 import farmRoutes from "../modules/farms/v1/farm.routes";
 import marketplaceRoutes from "../modules/marketplace/v1/marketplace.routes";
+import marketRateRoutes from "../modules/market-rates/v1/market-rates.routes";
 import productRoutes from "../modules/products/v1/product.routes";
 
 // Order, payment, and dispute routes.
@@ -48,6 +49,14 @@ import testMailRoutes from "../modules/test_mail/test-mail.routes";
 const apiV1Router = Router();
 
 /* ---------------- HEALTH CHECK ---------------- */
+apiV1Router.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "FarmZy API v1.0.0",
+    timestamp: new Date().toISOString()
+  });
+});
+
 apiV1Router.use("/health", healthCheck);
 
 /* ---------------- AUTH ---------------- */
@@ -69,6 +78,7 @@ apiV1Router.use("/admin", adminRoutes);
 /* ---------------- FARMING ---------------- */
 apiV1Router.use("/farms", farmRoutes);
 apiV1Router.use("/marketplace", marketplaceRoutes);
+apiV1Router.use("/market-rates", marketRateRoutes);
 apiV1Router.use("/products", productRoutes);
 
 /* ---------------- ORDERS & PAYMENTS ---------------- */

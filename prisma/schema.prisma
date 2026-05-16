@@ -154,11 +154,23 @@ enum LeadRole {
 }
 
 enum BroadcastType {
-  UPDATE
-  IMPORTANT
-  MAINTENANCE
-  ALERT
   SUCCESS
+  ALERT
+  MAINTENANCE
+  IMPORTANT
+  UPDATE
+}
+
+enum PriceDirection {
+  UP
+  DOWN
+  STABLE
+}
+
+enum DemandLevel {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum TargetAudience {
@@ -696,4 +708,55 @@ model TranslationDictionary {
   createdAt  DateTime @default(now())
 
   @@index([key])
+}
+
+model MarketRate {
+  id               String   @id @default(cuid())
+
+  // Crop info
+  commodity        String
+  category         String?
+  variety          String?
+  grade            String?
+
+  // Market location
+  mandiName        String
+  district         String
+  state            String
+
+  // Pricing
+  minPrice         Float?
+  maxPrice         Float?
+  modalPrice       Float
+
+  // Units
+  unit             String @default("Quintal")
+
+  // Trends
+  previousPrice    Float?
+  trendPercent     Float?
+  priceDirection   PriceDirection?
+
+  // Insights
+  demandLevel      DemandLevel?
+
+  // Metadata
+  source           String?
+  sourceRecordId   String?
+
+  // Official record date
+  recordedDate     DateTime
+
+  // Sync tracking
+  syncedAt         DateTime @default(now())
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([commodity])
+  @@index([state])
+  @@index([district])
+  @@index([recordedDate])
+
+  @@unique([commodity, mandiName, district, recordedDate])
 }
