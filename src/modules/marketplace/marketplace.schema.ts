@@ -3,7 +3,7 @@
  * Purpose: Implements the Marketplace.schema module for FarmZy.
  * Note: Documentation-only change; behavior remains unchanged.
  */
-import { ListingStatus, ListingType } from "@prisma/client";
+import { ListingStatus, ListingType, ProductCategory } from "@prisma/client";
 import { z, ZodType } from "zod";
 import ApiError from "../../utils/apiError";
 import {
@@ -72,7 +72,7 @@ export const createListingSchema = z
 export const marketplaceListingsQuerySchema = geoFieldsSchema.extend({
   search: z.string().trim().min(1).optional(),
   productId: z.string().trim().min(1).optional(),
-  category: z.string().trim().min(1).optional(),
+  category: z.nativeEnum(ProductCategory).optional(),
   location: z.string().trim().min(1).optional(),
   minPrice: positiveNumber.optional(),
   maxPrice: positiveNumber.optional(),
