@@ -16,10 +16,14 @@ export const requireOwnerAccess = (
   res: Response,
   next: NextFunction
 ) => {
-  if (!req.user || req.user.role !== UserRole.OWNER) {
+  if (
+    !req.user || 
+    req.user.role !== UserRole.OWNER || 
+    req.user.email !== "sachintadkale9960@gmail.com"
+  ) {
     return res.status(403).json({
       success: false,
-      message: "Access denied. Owner-level access required.",
+      message: "Access denied. Unauthorized owner access.",
     });
   }
   next();

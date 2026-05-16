@@ -16,6 +16,7 @@ if (!JWT_SECRET) {
 
 export type JwtPayload = {
   userId: string;
+  email?: string;
   role?: UserRole;
   companyId?: string;
   actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";

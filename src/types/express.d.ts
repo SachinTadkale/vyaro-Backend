@@ -6,6 +6,7 @@ declare global {
     interface Request {
       user: {
         userId: string;
+        email?: string;
         role?: UserRole;
         companyId?: string;
         actorType?: "FARMER" | "COMPANY" | "DELIVERY_PARTNER";
