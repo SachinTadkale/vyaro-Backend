@@ -93,6 +93,56 @@ export const DEFAULT_SETTINGS: Array<{
   { key: SystemSettingKey.DISABLE_REGISTRATIONS,    value: "false", displayName: "Disable Registrations",   description: "Prevents new user and company registrations",                 category: "MAINTENANCE", groupKey: "MAINTENANCE", isCritical: false },
 ];
 
+/** Default seed definitions for route toggles */
+export const DEFAULT_ROUTE_TOGGLES: Array<{
+  method: string;
+  path: string;
+  enabled: boolean;
+  displayName: string;
+  description: string;
+  groupKey: string;
+  moduleKey: string;
+  isCritical: boolean;
+}> = [
+  // ── Auth Module ─────────────────────────────────────────────────────────────
+  { method: "POST", path: "/api/v1/auth/user/login",       enabled: true, displayName: "User Login",               description: "Authenticate Farmer/Delivery user", groupKey: "AUTH", moduleKey: "AUTH", isCritical: true },
+  { method: "POST", path: "/api/v1/auth/user/register",    enabled: true, displayName: "User Registration",        description: "Register new users",             groupKey: "AUTH", moduleKey: "AUTH", isCritical: false },
+  { method: "POST", path: "/api/v1/auth/company/login",    enabled: true, displayName: "Company Login",            description: "Authenticate Company user",      groupKey: "AUTH", moduleKey: "AUTH", isCritical: true },
+  { method: "POST", path: "/api/v1/auth/admin/login",      enabled: true, displayName: "Admin Login",              description: "Authenticate Admin user",        groupKey: "AUTH", moduleKey: "AUTH", isCritical: true },
+
+  // ── App Config ──────────────────────────────────────────────────────────────
+  { method: "GET",  path: "/api/v1/app-config",            enabled: true, displayName: "App Config",               description: "Get runtime config for frontend",groupKey: "SYSTEM", moduleKey: "SYSTEM", isCritical: true },
+
+  // ── Marketplace Module ──────────────────────────────────────────────────────
+  { method: "GET",  path: "/api/v1/marketplace/listings",  enabled: true, displayName: "View Listings",            description: "Browse marketplace listings",    groupKey: "MARKETPLACE", moduleKey: "MARKETPLACE", isCritical: false },
+  { method: "POST", path: "/api/v1/marketplace/listings",  enabled: true, displayName: "Create Listing",           description: "Create new product listing",     groupKey: "MARKETPLACE", moduleKey: "MARKETPLACE", isCritical: false },
+
+  // ── Orders Module ───────────────────────────────────────────────────────────
+  { method: "POST", path: "/api/v1/orders",                enabled: true, displayName: "Create Order",             description: "Place a new order",              groupKey: "ORDERS", moduleKey: "ORDERS", isCritical: false },
+  { method: "GET",  path: "/api/v1/orders",                enabled: true, displayName: "Get Orders",               description: "Retrieve user orders",           groupKey: "ORDERS", moduleKey: "ORDERS", isCritical: false },
+  { method: "GET",  path: "/api/v1/orders/history",        enabled: true, displayName: "Order History",            description: "Retrieve order history",         groupKey: "ORDERS", moduleKey: "ORDERS", isCritical: false },
+
+  // ── Market Rates Module ─────────────────────────────────────────────────────
+  { method: "GET",  path: "/api/v1/market-rates",          enabled: true, displayName: "Get Market Rates",         description: "Retrieve mandi market rates",    groupKey: "MARKET_RATES", moduleKey: "MARKET_RATES", isCritical: false },
+
+  // ── Delivery Module ─────────────────────────────────────────────────────────
+  { method: "GET",  path: "/api/v1/deliveries",            enabled: true, displayName: "Get Deliveries",           description: "Retrieve all deliveries",        groupKey: "DELIVERY", moduleKey: "DELIVERY", isCritical: false },
+  { method: "PATCH",path: "/api/v1/deliveries/status",     enabled: true, displayName: "Update Delivery Status",   description: "Update status of a delivery",    groupKey: "DELIVERY", moduleKey: "DELIVERY", isCritical: false },
+
+  // ── Payments Module ─────────────────────────────────────────────────────────
+  { method: "POST", path: "/api/v1/payments/intent",       enabled: true, displayName: "Create Payment Intent",    description: "Initialize payment process",     groupKey: "PAYMENTS", moduleKey: "PAYMENTS", isCritical: false },
+  { method: "POST", path: "/api/v1/payments/verify",       enabled: true, displayName: "Verify Payment",           description: "Verify completed payment",       groupKey: "PAYMENTS", moduleKey: "PAYMENTS", isCritical: true },
+
+  // ── Users & KYC Module ──────────────────────────────────────────────────────
+  { method: "GET",  path: "/api/v1/users/profile",         enabled: true, displayName: "User Profile",             description: "Get user profile details",       groupKey: "USERS", moduleKey: "USERS", isCritical: false },
+  { method: "POST", path: "/api/v1/kyc-records",           enabled: true, displayName: "Submit KYC",               description: "Submit KYC documents",           groupKey: "USERS", moduleKey: "USERS", isCritical: false },
+
+  // ── Farms & Products Module ─────────────────────────────────────────────────
+  { method: "GET",  path: "/api/v1/farms",                 enabled: true, displayName: "Get Farms",                description: "Retrieve user farms",            groupKey: "FARMS", moduleKey: "FARMS", isCritical: false },
+  { method: "POST", path: "/api/v1/farms",                 enabled: true, displayName: "Create Farm",              description: "Register a new farm",            groupKey: "FARMS", moduleKey: "FARMS", isCritical: false },
+  { method: "GET",  path: "/api/v1/products",              enabled: true, displayName: "Get Products",             description: "Retrieve platform products",     groupKey: "PRODUCTS", moduleKey: "PRODUCTS", isCritical: false },
+];
+
 /** Redis cache key prefix for system settings */
 export const CACHE_PREFIX_SETTING   = "SYSSET:";
 /** Redis cache key prefix for route toggles */

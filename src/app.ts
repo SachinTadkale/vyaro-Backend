@@ -15,7 +15,6 @@ import { requestLogger } from "./middleware/requestLogger";
 import { langMiddleware } from "./middleware/lang.middleware";
 import { initMarketRatesCron } from "./modules/market-rates/v1/market-rate.cron";
 import { initDeliveryCron } from "./cron/delivery.cron";
-import { systemSettingsService } from "./modules/system-settings/v1/system-setting.service";
 import { globalRouteGuard } from "./middleware/route-guard.middleware";
 
 const API_PREFIX = "/api/v1";
@@ -102,12 +101,7 @@ expressApp.use(requestLogger);
 
 // ─── Boot Sequence ────────────────────────────────────────────────────────────
 
-// 1. Seed system settings (idempotent — safe to run on every restart)
-systemSettingsService.seedDefaults().catch((e) =>
-  console.error("❌ Failed to seed system settings:", e.message)
-);
-
-// 2. Initialize runtime-controlled cron jobs
+// 1. Initialize runtime-controlled cron jobs
 initMarketRatesCron();
 initDeliveryCron();
 

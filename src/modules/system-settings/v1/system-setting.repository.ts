@@ -57,13 +57,7 @@ export class SystemSettingRepository {
     });
   }
 
-  /** Seeds all default settings from DEFAULT_SETTINGS */
-  async seedDefaults() {
-    for (const s of DEFAULT_SETTINGS) {
-      await this.upsertByKey(s);
-    }
-    console.log(`✅ SystemSettings: seeded ${DEFAULT_SETTINGS.length} defaults.`);
-  }
+
 
   /** Returns all audits for a given setting key */
   async findAudits(settingKey: string) {
@@ -123,7 +117,9 @@ export class RouteToggleRepository {
     displayName?: string;
     description?: string;
     groupKey?:    string;
+    moduleKey?:   string;
     isCritical?:  boolean;
+    createdById?: string;
   }) {
     return prisma.routeToggle.create({
       data: {
@@ -133,10 +129,40 @@ export class RouteToggleRepository {
         displayName: data.displayName,
         description: data.description,
         groupKey:    data.groupKey,
+        moduleKey:   data.moduleKey,
         isCritical:  data.isCritical ?? false,
+        createdById: data.createdById,
       },
     });
   }
+
+  async upsertMethodPath(data: {
+    method:       string;
+    path:         string;
+    enabled:      boolean;
+    displayName:  string;
+    description:  string;
+    groupKey:     string;
+    moduleKey:    string;
+    isCritical:   boolean;
+  }) {
+    return prisma.routeToggle.upsert({
+      where:  { method_path: { method: data.method.toUpperCase(), path: data.path.toLowerCase().replace(/\/+$/, "") } },
+      update: {}, // don't overwrite if exists
+      create: {
+        method:      data.method.toUpperCase(),
+        path:        data.path.toLowerCase().replace(/\/+$/, ""),
+        enabled:     data.enabled,
+        displayName: data.displayName,
+        description: data.description,
+        groupKey:    data.groupKey,
+        moduleKey:   data.moduleKey,
+        isCritical:  data.isCritical,
+      },
+    });
+  }
+
+
 
   async updateById(id: string, enabled: boolean) {
     return prisma.routeToggle.update({

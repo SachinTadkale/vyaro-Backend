@@ -4,6 +4,28 @@ import { systemSettingsService } from "./system-setting.service";
 // ─── System Settings ────────────────────────────────────────────────────────
 
 /**
+ * POST /system-settings
+ * Creates a new system setting dynamically.
+ */
+export const createSetting = async (req: Request, res: Response) => {
+  try {
+    const { key, value, displayName, description, category, groupKey, isCritical } = req.body;
+    if (!key || value === undefined) {
+      return res.status(400).json({ success: false, message: "key and value are required" });
+    }
+
+    const createdById = req.user.userId;
+    const setting = await systemSettingsService.createSetting({
+      key, value: String(value), displayName, description, category, groupKey, isCritical, createdById
+    });
+
+    res.status(201).json({ success: true, data: setting, message: "System setting created" });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+/**
  * GET /system-settings
  * Returns all system settings.
  */
@@ -97,6 +119,32 @@ export const getSettingAudits = async (req: Request, res: Response) => {
   }
 };
 
+// ─── Bulk Actions ────────────────────────────────────────────────────────────
+
+/**
+ * PATCH /system-settings/modules/:moduleKey/toggle
+ * Bulk toggles all settings and routes belonging to a module.
+ */
+export const bulkToggleModule = async (req: Request, res: Response) => {
+  try {
+    const { enabled } = req.body;
+    if (enabled === undefined) {
+      return res.status(400).json({ success: false, message: "enabled (boolean) is required" });
+    }
+
+    const changedById = req.user.userId;
+    const result = await systemSettingsService.bulkToggleModule(
+      req.params.moduleKey,
+      Boolean(enabled),
+      changedById
+    );
+
+    res.json({ success: true, data: result, message: result.message });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
 // ─── Route Toggles ─────────────────────────────────────────────────────────
 
 /**
@@ -133,13 +181,14 @@ export const getRouteToggleById = async (req: Request, res: Response) => {
  */
 export const createRouteToggle = async (req: Request, res: Response) => {
   try {
-    const { method, path, enabled, displayName, description, groupKey, isCritical } = req.body;
+    const { method, path, enabled, displayName, description, groupKey, moduleKey, isCritical } = req.body;
     if (!method || !path) {
       return res.status(400).json({ success: false, message: "method and path are required" });
     }
 
+    const createdById = req.user.userId;
     const toggle = await systemSettingsService.createRouteToggle({
-      method, path, enabled, displayName, description, groupKey, isCritical
+      method, path, enabled, displayName, description, groupKey, moduleKey, isCritical, createdById
     });
 
     res.status(201).json({ success: true, data: toggle, message: "Route toggle registered" });
