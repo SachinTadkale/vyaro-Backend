@@ -5,6 +5,7 @@ import {
   CACHE_PREFIX_SETTING,
   CACHE_TTL_SECONDS,
 } from "./system-setting.types";
+import { logger } from "../../../utils/logger";
 import {
   RouteToggleRepository,
   SystemSettingRepository,
@@ -14,6 +15,28 @@ const settingRepo = new SystemSettingRepository();
 const routeRepo   = new RouteToggleRepository();
 
 export class SystemSettingService {
+  private onChangeCallbacks: (() => Promise<void>)[] = [];
+
+  registerOnChange(callback: () => Promise<void>) {
+    this.onChangeCallbacks.push(callback);
+  }
+
+  async triggerChange() {
+    await this.invalidateAppConfigCache();
+    
+    // Asynchronously call callbacks safely to avoid blocking write operations
+    for (const callback of this.onChangeCallbacks) {
+      try {
+        await callback();
+      } catch (err: any) {
+        logger.error({
+          message: "Error executing App Config onChange callback",
+          error: err.message
+        });
+      }
+    }
+  }
+
   // ─── System Settings ────────────────────────────────────────────────────────
 
 
@@ -59,7 +82,7 @@ export class SystemSettingService {
     await this.setSettingCache(existing.key, value);
 
     // Invalidate the full app-config blob since it depends on these settings
-    await this.invalidateAppConfigCache();
+    await this.triggerChange();
 
     return updated;
   }
@@ -90,7 +113,7 @@ export class SystemSettingService {
     });
 
     await this.setSettingCache(setting.key, setting.value);
-    await this.invalidateAppConfigCache();
+    await this.triggerChange();
     return setting;
   }
 
@@ -162,6 +185,7 @@ export class SystemSettingService {
   }) {
     const toggle = await routeRepo.create(data);
     await this.setRouteCache(toggle.method, toggle.path, toggle.enabled);
+    await this.triggerChange();
     return toggle;
   }
 
@@ -186,6 +210,7 @@ export class SystemSettingService {
 
     // Immediate cache update
     await this.setRouteCache(existing.method, existing.path, enabled);
+    await this.triggerChange();
 
     return updated;
   }
@@ -196,6 +221,7 @@ export class SystemSettingService {
 
     await routeRepo.deleteById(id);
     await this.invalidateRouteCache(existing.method, existing.path);
+    await this.triggerChange();
   }
 
   async getRouteToggleAudits(routeToggleId: string) {
@@ -310,6 +336,7 @@ export class SystemSettingService {
     const redis = getRedisClient();
     if (!redis) return;
     await redis.del(APPCONFIG_CACHE_KEY).catch(() => {});
+    await redis.del("APP_CONFIG:SNAPSHOT:v1").catch(() => {});
   }
 }
 

@@ -10,10 +10,15 @@ import { logger } from "../utils/logger";
  * Request Logger.
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
-  logger.info({
-    method: req.method,
-    url: req.url,
-  });
+  const isAppConfig = req.url === "/app-config" || req.url === "/api/v1/app-config";
+  const isProduction = process.env.NODE_ENV === "production";
+
+  if (!(isAppConfig && isProduction)) {
+    logger.info({
+      method: req.method,
+      url: req.url,
+    });
+  }
 
   next();
 };

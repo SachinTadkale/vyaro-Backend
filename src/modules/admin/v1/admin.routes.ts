@@ -95,5 +95,14 @@ router.post(
   syncMarketRatesAdmin
 );
 
+// App Config Runtime Health Route
+import { getRuntimeHealth } from "../../app-config/v1/app-config.controller";
+router.get(
+  "/runtime-health",
+  authMiddleware,
+  adminOnly,
+  getRuntimeHealth
+);
+
 export default router;
 
