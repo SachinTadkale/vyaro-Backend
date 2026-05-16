@@ -10,13 +10,14 @@ import { logger } from "../utils/logger";
  * Request Logger.
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
-  const isAppConfig = req.url === "/app-config" || req.url === "/api/v1/app-config";
+  const url = req.url || "";
+  const isOperational = url.includes("/app-config") || url.includes("/system-settings");
   const isProduction = process.env.NODE_ENV === "production";
 
-  if (!(isAppConfig && isProduction)) {
+  if (!(isOperational && isProduction)) {
     logger.info({
       method: req.method,
-      url: req.url,
+      url,
     });
   }
 
