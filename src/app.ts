@@ -17,6 +17,7 @@ import { initMarketRatesCron } from "./modules/market-rates/v1/market-rate.cron"
 import { initDeliveryCron } from "./cron/delivery.cron";
 import { globalRouteGuard } from "./middleware/route-guard.middleware";
 import { precomputeAppConfigSnapshot } from "./modules/app-config/v1/app-config.controller";
+import { systemSettingsService } from "./modules/system-settings/v1/system-setting.service";
 
 const API_PREFIX = "/api/v1";
 const expressApp = express();
@@ -67,7 +68,22 @@ expressApp.use(
     credentials: true,
   }),
 );
-expressApp.use(morgan("dev"));
+expressApp.use(
+  morgan("dev", {
+    skip: (req, res) => {
+      const isProduction = process.env.NODE_ENV === "production";
+      if (!isProduction) return false;
+
+      // Suppress successful (2xx/3xx) logs for app-config and system-settings
+      const url = req.originalUrl || req.url || "";
+      const isOperational = 
+        url.includes("/app-config") || 
+        url.includes("/system-settings");
+
+      return isOperational && res.statusCode < 400;
+    }
+  })
+);
 // Razorpay signs the raw webhook body, so this route must be mounted before JSON parsing.
 expressApp.use(
   "/webhooks",
@@ -106,9 +122,16 @@ expressApp.use(requestLogger);
 initMarketRatesCron();
 initDeliveryCron();
 
-// 2. Warm up App Config cache on server boot (populated asynchronously)
-precomputeAppConfigSnapshot().catch((err) => {
-  console.error("Failed to warm up App Config cache on boot:", err.message);
+// 2. Warm up all platform caches on server boot (populated asynchronously)
+Promise.all([
+  precomputeAppConfigSnapshot().catch(() => {}),
+  systemSettingsService.getAll().catch(() => {}),
+  systemSettingsService.getAllRouteToggles().catch(() => {}),
+  systemSettingsService.getAllAudits().catch(() => {})
+]).then(() => {
+  console.log("🔥 Operational settings, route toggles, audits, and app-config caches fully warmed up!");
+}).catch((err) => {
+  console.error("Failed to warm up platform caches on boot:", err.message);
 });
 
 export default expressApp;

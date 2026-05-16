@@ -8,7 +8,7 @@ import { logger } from "../../../utils/logger";
 const SNAPSHOT_VERSION = 1;
 const SNAPSHOT_REDIS_KEY = "APP_CONFIG:SNAPSHOT:v1";
 const REBUILD_LOCK_KEY = "LOCK:APP_CONFIG_REBUILD";
-const MEMORY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MEMORY_CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes
 
 // ── Shared Memory States ──────────────────────────────────────────────────
 let localAppConfigCache: any = null;
