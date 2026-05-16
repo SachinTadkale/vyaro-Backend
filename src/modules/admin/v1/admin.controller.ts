@@ -8,6 +8,13 @@ import asyncHandler from "../../../utils/asyncHandler";
 import * as adminService from "../admin.service";
 import notificationService from "../../notification/notification.service";
 import { NotificationEventType } from "../../notification/notification.types";
+import prisma from "../../../config/prisma";
+import { MarketRateService } from "../../market-rates/v1/market-rate.service";
+import { ExternalSyncType } from "@prisma/client";
+
+const marketRateService = new MarketRateService();
+
+
 
 /**
  * Get Admin Stats.
@@ -179,3 +186,51 @@ export const unblockUser = asyncHandler(async (req: Request, res: Response) => {
     message: result.message,
   });
 });
+
+/**
+ * Get Market Rates Sync Status.
+ */
+export const getMarketRatesSyncStatus = asyncHandler(async (_req: Request, res: Response) => {
+  const syncStatus = await prisma.externalSyncStatus.findUnique({
+    where: { syncType: ExternalSyncType.MARKET_RATES },
+  });
+
+  return res.status(200).json({
+    success: true,
+    data: syncStatus || {
+      syncType: ExternalSyncType.MARKET_RATES,
+      status: "STALE",
+      recordsProcessed: 0,
+      durationMs: 0,
+      lastAttemptAt: null,
+      lastSuccessAt: null,
+      lastFailureAt: null,
+      errorMessage: null,
+      source: "Agmarknet",
+      isManualTrigger: false,
+    },
+  });
+});
+
+/**
+ * Manually Trigger Market Rates Sync.
+ */
+export const syncMarketRatesAdmin = asyncHandler(async (_req: Request, res: Response) => {
+  // Pass isManualTrigger = true
+  const result = await marketRateService.syncMarketRates(true);
+  
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: result.message,
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: result.message,
+    recordsProcessed: result.recordsProcessed,
+  });
+});
+
+

@@ -896,3 +896,33 @@ model RouteToggleAudit {
   @@index([routeToggleId])
   @@index([changedById])
 }
+
+enum ExternalSyncType {
+  MARKET_RATES
+}
+
+enum ExternalSyncStatusType {
+  SUCCESS
+  FAILED
+  RUNNING
+  LOCKED
+  STALE
+}
+
+model ExternalSyncStatus {
+  id               String                 @id @default(cuid())
+  syncType         ExternalSyncType       @unique
+  status           ExternalSyncStatusType
+  recordsProcessed Int?
+  durationMs       Int?
+  lastAttemptAt    DateTime?
+  lastSuccessAt    DateTime?
+  lastFailureAt    DateTime?
+  errorMessage     String?
+  source           String?
+  isManualTrigger  Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+}
+
+
