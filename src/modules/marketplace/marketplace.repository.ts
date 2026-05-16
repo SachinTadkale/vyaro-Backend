@@ -3,7 +3,7 @@
  * Purpose: Implements the Marketplace.repository module for FarmZy.
  * Note: Documentation-only change; behavior remains unchanged.
  */
-import { ListingStatus, ListingType, Prisma, ProductUnit } from "@prisma/client";
+import { ListingStatus, ListingType, Prisma, ProductUnit, ProductCategory } from "@prisma/client";
 import prisma from "../../config/prisma";
 import { getBoundingBox, haversineDistanceSql } from "./marketplace.geo";
 import {
@@ -152,8 +152,7 @@ const buildMarketplaceWhere = (
         ...(query.category
           ? {
               category: {
-                equals: query.category,
-                mode: "insensitive",
+                equals: query.category as ProductCategory,
               },
             }
           : {}),
