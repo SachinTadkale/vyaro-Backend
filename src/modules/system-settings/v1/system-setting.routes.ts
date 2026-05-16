@@ -29,27 +29,21 @@ router.use(authMiddleware, requireOwnerAccess);
  * PATCH /system-settings/:id         → Update by ID (primary toggle)
  * PATCH /system-settings/key/:key    → Update by key (secondary)
  */
+// ─── System Settings (Static) ────────────────────────────────────────────────
 router.get   ("/audits",      getSettingAudits);
 router.get   ("/",            getAllSettings);
-router.get   ("/:id",         getSettingById);
-router.patch ("/:id",         updateSettingById);
 router.patch ("/key/:key",    updateSettingByKey);
 
 // ─── Route Toggles ─────────────────────────────────────────────────────────
-
-/**
- * GET    /system-settings/routes           → All route toggles
- * POST   /system-settings/routes           → Register new route toggle
- * GET    /system-settings/routes/:id       → Single route toggle by ID
- * PATCH  /system-settings/routes/:id       → Enable/disable route by ID
- * DELETE /system-settings/routes/:id       → Remove route toggle
- * GET    /system-settings/routes/:id/audits→ Audit history for route toggle
- */
 router.get    ("/routes",              getAllRouteToggles);
 router.post   ("/routes",              createRouteToggle);
 router.get    ("/routes/:id",          getRouteToggleById);
 router.patch  ("/routes/:id",          updateRouteToggleById);
 router.delete ("/routes/:id",          deleteRouteToggle);
 router.get    ("/routes/:id/audits",   getRouteToggleAudits);
+
+// ─── System Settings (Parametric) ───────────────────────────────────────────
+router.get   ("/:id",         getSettingById);
+router.patch ("/:id",         updateSettingById);
 
 export default router;
