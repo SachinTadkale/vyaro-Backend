@@ -28,6 +28,12 @@ import marketplaceRoutes from "../modules/marketplace/v1/marketplace.routes";
 import marketRateRoutes from "../modules/market-rates/v1/market-rates.routes";
 import productRoutes from "../modules/products/v1/product.routes";
 
+// System Controls
+import systemSettingRoutes from "../modules/system-settings/v1/system-setting.routes";
+
+// Feature Guard middleware
+import { featureGuard } from "../middleware/feature.middleware";
+
 // Order, payment, and dispute routes.
 import orderRoutes from "../modules/orders/v1/order.routes";
 import paymentRoutes from "../modules/payments/v1/payment.routes";
@@ -75,23 +81,31 @@ apiV1Router.use("/companies", companyRoutes);
 /* ---------------- ADMIN ---------------- */
 apiV1Router.use("/admin", adminRoutes);
 
+/* ---------------- SYSTEM CONTROLS ---------------- */
+apiV1Router.use("/system-settings", systemSettingRoutes);
+
 /* ---------------- FARMING ---------------- */
 apiV1Router.use("/farms", farmRoutes);
-apiV1Router.use("/marketplace", marketplaceRoutes);
-apiV1Router.use("/market-rates", marketRateRoutes);
+apiV1Router.use("/marketplace",   featureGuard("ENABLE_MARKETPLACE"),   marketplaceRoutes);
+apiV1Router.use("/market-rates",   featureGuard("ENABLE_MARKET_RATES"),  marketRateRoutes);
 apiV1Router.use("/products", productRoutes);
 
 /* ---------------- ORDERS & PAYMENTS ---------------- */
-apiV1Router.use("/orders", orderRoutes);
-apiV1Router.use("/payments", paymentRoutes);
+apiV1Router.use("/orders",       featureGuard("ENABLE_ORDERS"),   orderRoutes);
+apiV1Router.use("/payments",     featureGuard("ENABLE_PAYMENTS"), paymentRoutes);
 apiV1Router.use("/disputes", disputeRoutes);
 
 /* ---------------- LOGISTICS ---------------- */
-apiV1Router.use("/deliveries", deliveryRoutes);
-apiV1Router.use("/delivery-partners", deliveryPartnerRoutes);
+apiV1Router.use("/deliveries",         featureGuard("ENABLE_DELIVERY"), deliveryRoutes);
+apiV1Router.use("/delivery-partners",  deliveryPartnerRoutes);
 
 /* ---------------- TRANSACTIONS ---------------- */
 apiV1Router.use("/transactions", transactionRoutes);
+
+/* ---------------- APP CONFIG ---------------- */
+// Public endpoint for frontend feature flags and UI visibility
+import { getAppConfig } from "../modules/app-config/v1/app-config.controller";
+apiV1Router.get("/app-config", getAppConfig);
 
 /* ---------------- OTHER ---------------- */
 apiV1Router.use("/banks", bankRoutes);
