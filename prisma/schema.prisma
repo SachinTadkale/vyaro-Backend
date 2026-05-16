@@ -18,6 +18,7 @@ enum UserRole {
   ADMIN
   COMPANY
   DELIVERY_PARTNER
+  OWNER
 }
 
 enum DocumentType {
@@ -246,9 +247,12 @@ model User {
   bankDetails   BankDetails?
   products      Product[]
   otps          Otp[]
-  transactions  Transaction[]   @relation("UserTransactions")
-  payouts       Payout[]
-  kyc           Kyc[]
+  transactions      Transaction[]        @relation("UserTransactions")
+  payouts           Payout[]
+  kyc               Kyc[]
+  settingAudits     SystemSettingAudit[] @relation("SettingAuditChangedBy")
+  settingUpdates    SystemSetting[]      @relation("SettingUpdatedBy")
+  routeToggleAudits RouteToggleAudit[]   @relation("RouteToggleAuditChangedBy")
 
   @@index([phone_no])
 }
@@ -759,4 +763,120 @@ model MarketRate {
   @@index([recordedDate])
 
   @@unique([commodity, mandiName, district, recordedDate])
+}
+
+//////////////////////
+// SYSTEM CONTROLS
+//////////////////////
+
+enum SettingType {
+  BOOLEAN
+  STRING
+  NUMBER
+}
+
+enum SettingCategory {
+  FEATURE
+  ROUTE
+  CRON
+  MAINTENANCE
+  INTEGRATION
+}
+
+model SystemSetting {
+  id              String          @id @default(cuid())
+
+  key             String          @unique
+  displayName     String?
+
+  value           String
+
+  type            SettingType     @default(BOOLEAN)
+  category        SettingCategory @default(FEATURE)
+
+  groupKey        String?
+  description     String?
+
+  isCritical      Boolean         @default(false)
+  isVisible       Boolean         @default(true)
+  requiresRestart Boolean         @default(false)
+
+  updatedById     String?
+  updatedBy       User?           @relation("SettingUpdatedBy", fields: [updatedById], references: [user_id])
+  lastChangedAt   DateTime?
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  audits          SystemSettingAudit[]
+
+  @@index([category])
+  @@index([groupKey])
+  @@index([key])
+}
+
+model SystemSettingAudit {
+  id          String         @id @default(cuid())
+
+  settingKey  String
+  settingId   String?
+  setting     SystemSetting? @relation(fields: [settingId], references: [id])
+
+  oldValue    String
+  newValue    String
+
+  changedById String
+  changedBy   User           @relation("SettingAuditChangedBy", fields: [changedById], references: [user_id])
+
+  reason      String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([settingKey])
+  @@index([changedById])
+  @@index([settingId])
+}
+
+model RouteToggle {
+  id          String   @id @default(cuid())
+
+  method      String
+  path        String
+
+  enabled     Boolean  @default(true)
+
+  displayName String?
+  description String?
+  groupKey    String?
+
+  isCritical  Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  audits      RouteToggleAudit[]
+
+  @@unique([method, path])
+  @@index([groupKey])
+  @@index([enabled])
+}
+
+model RouteToggleAudit {
+  id            String      @id @default(cuid())
+
+  routeToggleId String
+  routeToggle   RouteToggle @relation(fields: [routeToggleId], references: [id])
+
+  oldValue      Boolean
+  newValue      Boolean
+
+  changedById   String
+  changedBy     User        @relation("RouteToggleAuditChangedBy", fields: [changedById], references: [user_id])
+
+  reason        String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([routeToggleId])
+  @@index([changedById])
 }

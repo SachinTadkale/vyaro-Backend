@@ -1,22 +1,33 @@
 import cron from "node-cron";
 import { MarketRateService } from "./market-rate.service";
+import { systemSettingsService } from "../../../modules/system-settings/v1/system-setting.service";
+import { SystemSettingKey } from "../../../modules/system-settings/v1/system-setting.types";
 
 const service = new MarketRateService();
 
 /**
- * Scheduled Market Rates Sync
- * Runs every day at 6:00 AM
+ * Market Rates Sync Cron — runs daily at 6:00 AM.
+ * Checks ENABLE_MARKET_RATE_CRON before executing.
+ * Can be toggled live via system settings without restart.
  */
 export const initMarketRatesCron = () => {
-  console.log("⏰ Market Rates Cron Initialized (Daily at 6:00 AM)");
-  
-  // Trigger immediate sync on startup to ensure data is available
-  console.log("🔄 Triggering Initial Market Rates Sync...");
+  console.log("⏰ Market Rates Cron initialized (Daily at 6:00 AM, runtime-controlled).");
+
+  // Trigger an immediate sync on startup
   service.syncMarketRates();
 
-  // 0 6 * * * = 6:00 AM every day
   cron.schedule("0 6 * * *", async () => {
-    console.log("🚀 Running Scheduled Market Rates Sync...");
+    const enabled = await systemSettingsService.getBoolean(
+      SystemSettingKey.ENABLE_MARKET_RATE_CRON,
+      true
+    );
+
+    if (!enabled) {
+      console.log("⏸️  Market rate sync skipped — ENABLE_MARKET_RATE_CRON is OFF.");
+      return;
+    }
+
+    console.log("🚀 Running scheduled Market Rates Sync...");
     await service.syncMarketRates();
   });
 };

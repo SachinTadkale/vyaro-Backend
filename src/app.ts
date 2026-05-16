@@ -13,9 +13,10 @@ import { createRateLimiter } from "./middleware/rateLimit.middleware";
 import { errorHandler } from "./middleware/error.middleware";
 import { requestLogger } from "./middleware/requestLogger";
 import { langMiddleware } from "./middleware/lang.middleware";
-import cron from "node-cron";
-import {expireDeliveries } from "./cron/delivery.cron";
 import { initMarketRatesCron } from "./modules/market-rates/v1/market-rate.cron";
+import { initDeliveryCron } from "./cron/delivery.cron";
+import { systemSettingsService } from "./modules/system-settings/v1/system-setting.service";
+import { globalRouteGuard } from "./middleware/route-guard.middleware";
 
 const API_PREFIX = "/api/v1";
 const expressApp = express();
@@ -80,6 +81,11 @@ expressApp.use(express.urlencoded({ extended: false, limit: "100kb" }));
 // Resolve x-lang header → req.lang for all downstream controllers
 expressApp.use(langMiddleware);
 
+// Global route-level toggle + maintenance mode guard
+// Must run AFTER auth middleware wires req.user (via authenticate in routes),
+// so we mount it just before the v1 routes as a pass-through check.
+expressApp.use(API_PREFIX, globalRouteGuard);
+
 expressApp.use(API_PREFIX, globalApiLimiter, v1Routes);
 
 /* ---------------- 404 HANDLER ---------------- */
@@ -94,13 +100,15 @@ expressApp.use((request: Request, response: Response) => {
 expressApp.use(errorHandler);
 expressApp.use(requestLogger);
 
-// Run every 5 minutes
-cron.schedule("*/5 * * * *", async () => {
-  console.log("Running delivery expiry...");
-  await expireDeliveries();
-});
+// ─── Boot Sequence ────────────────────────────────────────────────────────────
 
-// Initialize Market Rates Sync Cron
+// 1. Seed system settings (idempotent — safe to run on every restart)
+systemSettingsService.seedDefaults().catch((e) =>
+  console.error("❌ Failed to seed system settings:", e.message)
+);
+
+// 2. Initialize runtime-controlled cron jobs
 initMarketRatesCron();
+initDeliveryCron();
 
 export default expressApp;
