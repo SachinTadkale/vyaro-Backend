@@ -61,39 +61,41 @@ export const updateProfileImage = async (userId: string, file: any) => {
 export const getUserProfile = async (userId: string) => {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
-    include: {
-      _count: {
-        select: {
-          products: true,
-          listings: { where: { status: "ACTIVE" } },
-        },
-      },
-      farmDetails: true,
+    select: {
+      user_id: true,
+      name: true,
+      email: true,
+      role: true,
+      verificationStatus: true,
+      profileImage: true,
+      location: true,
+      publicProfileId: true,
+      qrShareToken: true,
     },
   });
 
   if (!user) throw new ApiError(404, "User not found");
 
-  // Calculate order count separately as it's not a direct relation in User model (it is linked via listing, but we have sellerId in Order)
-  const orderCount = await prisma.order.count({
-    where: { sellerId: userId },
-  });
-
-  // Calculate total revenue from completed orders
-  const revenueResult = await prisma.order.aggregate({
-    where: { 
-      sellerId: userId,
-      orderStatus: "COMPLETED" 
-    },
-    _sum: {
-      finalPrice: true,
-    }
-  });
+  // Fetch stats separately to avoid complex _count/aggregate issues
+  const [cropCount, listingCount, orderCount, revenueResult] = await Promise.all([
+    prisma.product.count({ where: { userId } }),
+    prisma.marketListing.count({ where: { sellerId: userId, status: "ACTIVE" } }),
+    prisma.order.count({ where: { sellerId: userId } }),
+    prisma.order.aggregate({
+      where: { 
+        sellerId: userId,
+        orderStatus: "COMPLETED" 
+      },
+      _sum: {
+        finalPrice: true,
+      }
+    })
+  ]);
 
   return {
     ...user,
-    cropCount: user._count.products,
-    listingCount: user._count.listings,
+    cropCount,
+    listingCount,
     orderCount,
     revenue: revenueResult._sum.finalPrice || 0,
   };
