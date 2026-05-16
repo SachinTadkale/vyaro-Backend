@@ -1,72 +1,62 @@
 import { MarketRateRepository } from "./market-rate.repository";
 import { MarketRateFilter, AgmarknetPriceRecord, PriceDirection, DemandLevel } from "./market-rate.types";
 import axios from "axios";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ExternalSyncType, ExternalSyncStatusType } from "@prisma/client";
+import { logger } from "../../../utils/logger";
+import { getRedisClient } from "../../../config/redis";
 
 const repository = new MarketRateRepository();
 const prisma = new PrismaClient();
 
 export class MarketRateService {
   constructor() {
-    this.initSync();
-  }
-
-  private async initSync() {
-    console.log("🔄 Triggering Initial Market Rates Sync...");
-    await this.syncMarketRates();
+    // Zero constructor side effects: pure dependency/instance holder
   }
 
   async getAllRates(filters: MarketRateFilter) {
-    const officialRates = await repository.findAll(filters);
-    
-    // In hybrid model, we also include insights from internal FarmZY listings
-    // const internalRates = await this.getInternalFarmZYRates(filters);
-    
-    return officialRates;
-  }
+    const redis = getRedisClient();
+    let rates: any[] = [];
 
-  /**
-   * Internal FarmZY Analytics Integration
-   * Calculates average prices from active marketplace listings
-   */
-  private async getInternalFarmZYRates(filters: MarketRateFilter) {
-    // Group listings by product/commodity
-    const listings = await prisma.marketListing.findMany({
-      where: {
-        status: "ACTIVE",
-        product: filters.commodity ? { productName: { contains: filters.commodity, mode: "insensitive" } } : undefined,
-      },
-      include: { product: true, seller: { include: { farmDetails: true } } },
-    });
-
-    const groups: Record<string, { total: number, count: number, state: string, district: string }> = {};
-
-    for (const l of listings) {
-      const name = l.product.productName;
-      if (!groups[name]) groups[name] = { total: 0, count: 0, state: l.seller.farmDetails?.state ?? 'India', district: l.seller.farmDetails?.district ?? 'Local' };
-      groups[name].total += l.price;
-      groups[name].count += 1;
+    if (redis) {
+      try {
+        const cached = await redis.get("MARKET_RATES:LATEST").catch(() => null);
+        if (cached) {
+          rates = (typeof cached === "string" ? JSON.parse(cached) : cached) as any[];
+          logger.debug({ message: "Serving market rates from Redis cache", key: "MARKET_RATES:LATEST" });
+        }
+      } catch (err: any) {
+        logger.warn({ message: "Failed reading market rates from Redis cache", error: err.message });
+      }
     }
 
-    return Object.entries(groups).map(([name, data]) => ({
-      id: `internal-${name}`,
-      commodity: name,
-      category: "FarmZY Intelligence",
-      variety: "Platform Average",
-      mandiName: "FarmZY Marketplace",
-      district: data.district,
-      state: data.state,
-      modalPrice: data.total / data.count,
-      unit: "Platform Unit",
-      source: "FarmZY Internal",
-      recordedDate: new Date(),
-      syncedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      trendPercent: 0, // Could calculate this historically
-      priceDirection: "STABLE",
-      demandLevel: "MEDIUM"
-    }));
+    if (!rates || rates.length === 0) {
+      rates = await repository.findAll({});
+      if (redis && rates.length > 0) {
+        try {
+          await redis.set("MARKET_RATES:LATEST", JSON.stringify(rates), { ex: 6 * 60 * 60 }).catch(() => {});
+        } catch (err: any) {
+          logger.warn({ message: "Failed writing market rates to Redis cache", error: err.message });
+        }
+      }
+    }
+
+    // Apply filters in-memory if loaded from cache or if query was requested
+    if (filters.commodity || filters.state || filters.district || filters.mandi) {
+      const c = filters.commodity?.toLowerCase();
+      const s = filters.state?.toLowerCase();
+      const d = filters.district?.toLowerCase();
+      const m = filters.mandi?.toLowerCase();
+
+      rates = rates.filter(r => {
+        if (c && !r.commodity?.toLowerCase().includes(c)) return false;
+        if (s && !r.state?.toLowerCase().includes(s)) return false;
+        if (d && !r.district?.toLowerCase().includes(d)) return false;
+        if (m && !r.mandiName?.toLowerCase().includes(m)) return false;
+        return true;
+      });
+    }
+
+    return rates;
   }
 
   async getTrending() {
@@ -87,30 +77,217 @@ export class MarketRateService {
 
   /**
    * Sync data from Data.gov.in (Agmarknet)
+   * Decoupled from live reads. Fully protected via distributed lock and circuit breaker.
    */
-  async syncMarketRates() {
-    console.log("🔄 Starting Production Market Rates Sync...");
-    try {
-      const apiKey = process.env.DATA_GOV_API_KEY;
-      if (!apiKey) {
-        console.warn("⚠️ DATA_GOV_API_KEY missing. Sync aborted.");
-        // await this.mockSync();
-        return;
+  async syncMarketRates(isManualTrigger = false): Promise<{ success: boolean; message: string; recordsProcessed?: number }> {
+    const startTime = Date.now();
+    logger.info(`🔄 Starting Production Market Rates Sync (isManualTrigger=${isManualTrigger})...`);
+
+    const redis = getRedisClient();
+    const lockKey = "LOCK:MARKET_RATE_SYNC";
+    const backoffKey = "MARKET_API_BACKOFF_UNTIL";
+
+    // 1. Check Circuit Breaker
+    if (redis) {
+      try {
+        const backoffVal = await redis.get(backoffKey).catch(() => null);
+        if (backoffVal) {
+          const backoffTime = parseInt(backoffVal as string, 10);
+          if (Date.now() < backoffTime) {
+            const warningMsg = `Market rates sync aborted: API backoff circuit breaker active until ${new Date(backoffTime).toISOString()}`;
+            logger.warn({ message: warningMsg });
+            return { success: false, message: "Sync skipped: API backoff active." };
+          }
+        }
+      } catch (err: any) {
+        logger.warn({ message: "Failed reading Redis backoff key", error: err.message });
       }
 
-      const resourceId = "9ef84268-d588-465a-a308-a864a43d0070";
-      const url = `https://api.data.gov.in/resource/${resourceId}?api-key=${apiKey}&format=json&limit=100`;
+      // 2. Try to acquire Distributed Lock
+      try {
+        const lockAcquired = await redis.set(lockKey, "locked", { nx: true, ex: 600 }).catch(() => null);
+        if (!lockAcquired) {
+          const lockedMsg = "Market rates sync skipped: Sync already in progress (lock exists).";
+          logger.warn({ message: lockedMsg });
+          return { success: false, message: "Market sync already in progress." };
+        }
+      } catch (err: any) {
+        logger.warn({ message: "Failed acquiring Redis distributed lock", error: err.message });
+      }
+    }
 
-      const response = await axios.get(url);
-      const records: AgmarknetPriceRecord[] = response.data.records;
+    // Update sync status to RUNNING in the DB
+    await prisma.externalSyncStatus.upsert({
+      where: { syncType: ExternalSyncType.MARKET_RATES },
+      create: {
+        syncType: ExternalSyncType.MARKET_RATES,
+        status: ExternalSyncStatusType.RUNNING,
+        lastAttemptAt: new Date(),
+        isManualTrigger,
+        source: "Agmarknet",
+      },
+      update: {
+        status: ExternalSyncStatusType.RUNNING,
+        lastAttemptAt: new Date(),
+        isManualTrigger,
+      }
+    }).catch((err) => logger.warn({ message: "Failed writing RUNNING status to DB", error: err.message }));
 
+    const apiKey = process.env.DATA_GOV_API_KEY;
+    if (!apiKey) {
+      logger.warn({ message: "DATA_GOV_API_KEY missing. Sync aborted." });
+      if (redis) await redis.del(lockKey).catch(() => {});
+      return { success: false, message: "DATA_GOV_API_KEY missing." };
+    }
+
+    const resourceId = "9ef84268-d588-465a-a308-a864a43d0070";
+    // Limit data fetch size and only fetch relevant state (Maharashtra) to avoid large payloads
+    const url = `https://api.data.gov.in/resource/${resourceId}?api-key=${apiKey}&format=json&limit=50&filters[state]=Maharashtra`;
+
+    try {
+      // 3. Fetch with Retry Throttling
+      const response = await this.fetchWithRetry(url);
+      const records: AgmarknetPriceRecord[] = response.data.records ?? [];
+
+      // 4. Process records into PostgreSQL
       for (const record of records) {
         await this.processRecord(record);
       }
 
-      console.log("✅ Market Rates Sync Complete.");
-    } catch (error) {
-      console.error("❌ Sync Failed:", error);
+      // 5. Update Read optimization Cache in Redis
+      const allLatestRates = await repository.findAll({});
+      if (redis && allLatestRates.length > 0) {
+        await redis.set("MARKET_RATES:LATEST", JSON.stringify(allLatestRates), { ex: 6 * 60 * 60 }).catch(() => {});
+      }
+
+      // 6. Record success in ExternalSyncStatus model
+      const durationMs = Date.now() - startTime;
+      await prisma.externalSyncStatus.upsert({
+        where: { syncType: ExternalSyncType.MARKET_RATES },
+        create: {
+          syncType: ExternalSyncType.MARKET_RATES,
+          status: ExternalSyncStatusType.SUCCESS,
+          recordsProcessed: records.length,
+          durationMs,
+          lastSuccessAt: new Date(),
+          source: "Agmarknet",
+          isManualTrigger,
+        },
+        update: {
+          status: ExternalSyncStatusType.SUCCESS,
+          recordsProcessed: records.length,
+          durationMs,
+          lastSuccessAt: new Date(),
+          errorMessage: null,
+          isManualTrigger,
+        }
+      }).catch((dbErr) => logger.warn({ message: "Failed auditing sync status to DB", error: dbErr.message }));
+
+      logger.info({ message: "✅ Market Rates Sync Complete.", recordsProcessed: records.length, durationMs });
+
+      // 7. Clean up Lock
+      if (redis) await redis.del(lockKey).catch(() => {});
+
+      return { success: true, message: "Market rates sync completed successfully.", recordsProcessed: records.length };
+    } catch (error: any) {
+      const durationMs = Date.now() - startTime;
+      const status = error.response?.status;
+
+      // Clean up Lock
+      if (redis) await redis.del(lockKey).catch(() => {});
+
+      // 8. Circuit Breaker trigger on 429
+      if (status === 429) {
+        logger.warn({
+          message: "Data.gov.in API rate limit reached (429). Sync aborted.",
+          status: 429,
+          endpoint: url
+        });
+
+        if (redis) {
+          // Set 2 hours backoff until next attempt
+          const backoffDuration = 2 * 60 * 60 * 1000;
+          await redis.set(backoffKey, (Date.now() + backoffDuration).toString(), { ex: 2 * 60 * 60 }).catch(() => {});
+        }
+
+        await prisma.externalSyncStatus.upsert({
+          where: { syncType: ExternalSyncType.MARKET_RATES },
+          create: {
+            syncType: ExternalSyncType.MARKET_RATES,
+            status: ExternalSyncStatusType.FAILED,
+            durationMs,
+            lastFailureAt: new Date(),
+            errorMessage: "429 Too Many Requests (Rate limit reached)",
+            source: "Agmarknet",
+            isManualTrigger,
+          },
+          update: {
+            status: ExternalSyncStatusType.FAILED,
+            durationMs,
+            lastFailureAt: new Date(),
+            errorMessage: "429 Too Many Requests (Rate limit reached)",
+            isManualTrigger,
+          }
+        }).catch(() => {});
+
+        return { success: false, message: "Data.gov.in API rate limit reached. Backoff activated." };
+      }
+
+      // 9. Structured Sanitized Error Logging for other errors (no full Axios objects)
+      logger.error({
+        message: "Market rates sync failed",
+        error: error.message,
+        status: status,
+        endpoint: url
+      });
+
+      await prisma.externalSyncStatus.upsert({
+        where: { syncType: ExternalSyncType.MARKET_RATES },
+        create: {
+          syncType: ExternalSyncType.MARKET_RATES,
+          status: ExternalSyncStatusType.FAILED,
+          durationMs,
+          lastFailureAt: new Date(),
+          errorMessage: error.message,
+          source: "Agmarknet",
+          isManualTrigger,
+        },
+        update: {
+          status: ExternalSyncStatusType.FAILED,
+          durationMs,
+          lastFailureAt: new Date(),
+          errorMessage: error.message,
+          isManualTrigger,
+        }
+      }).catch(() => {});
+
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Request delay and exponential backoff retry helper. Short-circuits on 429.
+   */
+  private async fetchWithRetry(url: string, retries = 2, delayMs = 10000): Promise<any> {
+    try {
+      return await axios.get(url);
+    } catch (error: any) {
+      const status = error.response?.status;
+      if (status === 429) {
+        throw error; // Do not retry 429 at all!
+      }
+      if (retries > 0) {
+        logger.warn({
+          message: "External Mandi API call failed. Retrying...",
+          retriesLeft: retries,
+          delayMs,
+          error: error.message,
+          endpoint: url
+        });
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        return this.fetchWithRetry(url, retries - 1, delayMs * 2);
+      }
+      throw error;
     }
   }
 
@@ -127,7 +304,7 @@ export class MarketRateService {
     }
 
     if (isNaN(recordedDate.getTime())) {
-      console.warn(`⚠️ Invalid date format: ${record.arrival_date}. Skipping record.`);
+      logger.warn({ message: `Invalid date format: ${record.arrival_date}. Skipping record.` });
       return;
     }
 
@@ -177,82 +354,5 @@ export class MarketRateService {
     return text.split(' ').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     ).join(' ').trim();
-  }
-
-  /**
-   * Mock sync for development if no API key
-   * Generates yesterday and today records to ensure trends exist
-   */
-  private async mockSync() {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const today = new Date();
-
-    const mockSets = [
-      { 
-        commodity: "TOMATO", 
-        mandi: "Nashik Mandi", 
-        yesterdayPrice: 3500, 
-        todayPrice: 4000, // +14%
-        state: "Maharashtra",
-        district: "Nashik"
-      },
-      { 
-        commodity: "ONION", 
-        mandi: "Lasalgaon Mandi", 
-        yesterdayPrice: 3200, 
-        todayPrice: 2800, // -12.5%
-        state: "Maharashtra",
-        district: "Nashik"
-      },
-      { 
-        commodity: "WHEAT", 
-        mandi: "Pune Mandi", 
-        yesterdayPrice: 2400, 
-        todayPrice: 2600, // +8.3%
-        state: "Maharashtra",
-        district: "Pune"
-      },
-      { 
-        commodity: "POTATO", 
-        mandi: "Solapur Mandi", 
-        yesterdayPrice: 2000, 
-        todayPrice: 1900, // -5%
-        state: "Maharashtra",
-        district: "Solapur"
-      }
-    ];
-
-    for (const set of mockSets) {
-      // 1. Create Yesterday's Record
-      await repository.upsertRate({
-        commodity: this.normalizeText(set.commodity),
-        variety: "Regular",
-        mandiName: set.mandi,
-        district: set.district,
-        state: set.state,
-        modalPrice: set.yesterdayPrice,
-        minPrice: set.yesterdayPrice - 200,
-        maxPrice: set.yesterdayPrice + 200,
-        recordedDate: yesterday,
-        source: "Agmarknet",
-        unit: "Quintal"
-      });
-
-      // 2. Create Today's Record (processRecord will calculate trend automatically)
-      await this.processRecord({
-        state: set.state,
-        district: set.district,
-        market: set.mandi,
-        commodity: set.commodity,
-        variety: "Regular",
-        grade: "FAQ",
-        arrival_date: today.toISOString(),
-        min_price: (set.todayPrice - 200).toString(),
-        max_price: (set.todayPrice + 200).toString(),
-        modal_price: set.todayPrice.toString()
-      });
-    }
   }
 }

@@ -19,6 +19,8 @@ import {
   rejectCompany,
   rejectUser,
   unblockUser,
+  getMarketRatesSyncStatus,
+  syncMarketRatesAdmin,
 } from "../v1/admin.controller";
 
 const router = Router();
@@ -78,4 +80,20 @@ router.patch(
   rejectUser
 );
 
+// Market Rates Sync Monitoring & Execution Routes
+router.get(
+  "/market-rates/sync-status",
+  authMiddleware,
+  adminOnly,
+  getMarketRatesSyncStatus
+);
+
+router.post(
+  "/market-rates/sync",
+  authMiddleware,
+  adminOnly,
+  syncMarketRatesAdmin
+);
+
 export default router;
+
