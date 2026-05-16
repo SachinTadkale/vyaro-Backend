@@ -25,6 +25,7 @@ interface AppConfigResponse {
     ai:           FeatureConfig;
     news:         FeatureConfig;
     qr:           FeatureConfig;
+    myCrops:      FeatureConfig;
   };
   _cachedAt: string;
 }
@@ -45,7 +46,7 @@ export const getAppConfig = async (_req: Request, res: Response) => {
     if (redis) {
       const cached = await redis.get(APPCONFIG_CACHE_KEY).catch(() => null);
       if (cached) {
-        const parsed = JSON.parse(cached) as AppConfigResponse;
+        const parsed = (typeof cached === "string" ? JSON.parse(cached) : cached) as AppConfigResponse;
         return res.json({ success: true, data: parsed, _source: "cache" });
       }
     }

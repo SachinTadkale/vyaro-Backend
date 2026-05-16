@@ -182,7 +182,7 @@ export class SystemSettingService {
     const cacheKey = this.buildRouteCacheKey(method, path);
 
     if (redis) {
-      const cached = await redis.get(cacheKey).catch(() => null);
+      const cached = (await redis.get(cacheKey).catch(() => null)) as string | null;
       if (cached !== null) return cached !== "false";
     }
 
@@ -218,7 +218,7 @@ export class SystemSettingService {
   private async getSettingCache(key: string): Promise<string | null> {
     const redis = getRedisClient();
     if (!redis) return null;
-    return redis.get(`${CACHE_PREFIX_SETTING}${key}`).catch(() => null);
+    return (await redis.get(`${CACHE_PREFIX_SETTING}${key}`).catch(() => null)) as string | null;
   }
 
   private async setSettingCache(key: string, value: string) {
