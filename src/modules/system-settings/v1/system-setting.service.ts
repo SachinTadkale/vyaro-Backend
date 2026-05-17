@@ -4,20 +4,59 @@ import {
   CACHE_PREFIX_ROUTE,
   CACHE_PREFIX_SETTING,
   CACHE_TTL_SECONDS,
+  SystemSettingKey,
 } from "./system-setting.types";
 import { logger } from "../../../utils/logger";
 import {
   RouteToggleRepository,
   SystemSettingRepository,
 } from "./system-setting.repository";
+import { z } from "zod";
+import { FEATURE_REGISTRY, FeatureRegistryEntry } from "./feature-registry";
+import prisma from "../../../config/prisma";
 
 const settingRepo = new SystemSettingRepository();
 const routeRepo   = new RouteToggleRepository();
 
+// ── Zod Validation Schemas for Type-safety ───────────────────────────────────
+
+const FeatureConfigSchema = z.object({
+  enabled: z.boolean(),
+  visible: z.boolean(),
+  maintenance: z.boolean(),
+  platform: z.enum(["BOTH", "APP", "WEB", "ADMIN"]),
+  label: z.string().optional(),
+  description: z.string().optional(),
+  roles: z.array(z.string()).optional(),
+  dependsOn: z.array(z.string()).optional(),
+  routePrefixes: z.array(z.string()).optional()
+});
+
+export const AppConfigResponseSchema = z.object({
+  version: z.number(),
+  generatedAt: z.string(),
+  updatedAt: z.string(),
+  maintenanceMode: z.boolean(),
+  readOnlyMode: z.boolean(),
+  features: z.record(z.string(), FeatureConfigSchema),
+  _debug: z.object({
+    registryKeysCount: z.number(),
+    activeFeaturesCount: z.number(),
+    cacheWarmedAt: z.string(),
+    dbStatus: z.string(),
+    latencies: z.object({
+      appConfigRefreshMs: z.number()
+    })
+  }).optional()
+});
+
+export type FeatureConfigType = z.infer<typeof FeatureConfigSchema>;
+export type AppConfigResponse = z.infer<typeof AppConfigResponseSchema>;
+
 export class SystemSettingService {
   private onChangeCallbacks: (() => Promise<void>)[] = [];
 
-  // Memory Caches
+  // Memory Caches for individual tables
   private localSystemSettingsCache: any = null;
   private localSystemSettingsExpiresAt = 0;
 
@@ -26,6 +65,13 @@ export class SystemSettingService {
 
   private localAuditCache: any = null;
   private localAuditExpiresAt = 0;
+
+  // Centralized AppConfig memory cache (30-second TTL)
+  private appConfigCache: AppConfigResponse | null = null;
+  private appConfigExpiresAt = 0;
+  private appConfigUpdatedAt = new Date().toISOString();
+  private isRefreshingAppConfig = false;
+  private readonly APP_CONFIG_TTL = 30 * 1000; // 30 seconds max TTL
 
   // Rebuilding states (local single-flight locks)
   private isRebuildingSettings = false;
@@ -42,9 +88,13 @@ export class SystemSettingService {
   }
 
   async triggerChange() {
-    await this.invalidateAppConfigCache();
+    // Increment the config updatedAt timestamp synchronously on any write
+    this.appConfigUpdatedAt = new Date().toISOString();
+
+    // Immediately evict memory cache
+    this.invalidateAppConfigCache();
     
-    // Asynchronously call callbacks safely to avoid blocking write operations
+    // Execute registered callbacks (e.g. redis nuke or rebuild triggers)
     for (const callback of this.onChangeCallbacks) {
       try {
         await callback();
@@ -55,6 +105,239 @@ export class SystemSettingService {
         });
       }
     }
+  }
+
+  // ─── AppConfig Centralized Loading ──────────────────────────────────────────
+
+  /**
+   * Retrieves the centralized dynamic configuration.
+   * Leverages a local 30-second memory TTL to avoid duplicate database loads.
+   */
+  async getAppConfig(force = false): Promise<AppConfigResponse> {
+    const now = Date.now();
+    if (!force && this.appConfigCache && now < this.appConfigExpiresAt) {
+      return this.appConfigCache;
+    }
+
+    return this.refreshAppConfig();
+  }
+
+  /**
+   * Auto-heals and seeds the feature registry in the database on startup.
+   * Scans all features in FEATURE_REGISTRY, verifies their DB presence,
+   * and seeds missing ones with defaults. Obsolete settings are NEVER deleted.
+   */
+  async initializeFeatureRegistry(): Promise<void> {
+    try {
+      logger.info("Initializing system feature registry seeder...");
+      const dbSettings = await settingRepo.findAll();
+      const dbKeys = new Set(dbSettings.map(s => s.key));
+
+      // Loop through all feature definitions in the registry
+      for (const [key, entry] of Object.entries(FEATURE_REGISTRY)) {
+        // 1. Check & Seed Enable Toggle
+        if (!dbKeys.has(entry.enableKey)) {
+          logger.info(`Seeding missing ENABLE toggle: ${entry.enableKey}`);
+          await settingRepo.upsertByKey({
+            key: entry.enableKey,
+            value: entry.defaultEnabled ? "true" : "false",
+            displayName: entry.label,
+            description: entry.description,
+            category: "FEATURE",
+            groupKey: "FEATURE",
+            isCritical: key === "marketplace" || key === "orders" || key === "myCrops"
+          });
+        }
+
+        // 2. Check & Seed Visible Toggle
+        if (!dbKeys.has(entry.visibleKey)) {
+          logger.info(`Seeding missing VISIBLE toggle: ${entry.visibleKey}`);
+          await settingRepo.upsertByKey({
+            key: entry.visibleKey,
+            value: entry.defaultVisible ? "true" : "false",
+            displayName: `Show ${entry.label} in UI`,
+            description: `Show/hide ${entry.label} in navigation and home screen`,
+            category: "FEATURE",
+            groupKey: "UI_VISIBILITY",
+            isCritical: false
+          });
+        }
+      }
+
+      logger.info("Feature registry initialized successfully.");
+    } catch (err: any) {
+      logger.error({
+        message: "Failed to initialize and seed feature registry",
+        error: err.message
+      });
+    }
+  }
+
+  /**
+   * Recomputes and updates the AppConfig cache with dynamic values and Zod validation.
+   */
+  async refreshAppConfig(): Promise<AppConfigResponse> {
+    if (this.isRefreshingAppConfig && this.appConfigCache) {
+      return this.appConfigCache; // Prevent duplicate concurrent rebuilds
+    }
+
+    this.isRefreshingAppConfig = true;
+    const redis = getRedisClient();
+
+    try {
+      const now = Date.now();
+
+      // Read maintenance and read-only mode states
+      const [maintenanceMode, readOnlyMode] = await Promise.all([
+        this.getBoolean(SystemSettingKey.MAINTENANCE_MODE, false),
+        this.getBoolean(SystemSettingKey.READ_ONLY_MODE, false),
+      ]);
+
+      // Dynamically load feature configs from DB/Redis settings according to FEATURE_REGISTRY
+      const features: Record<string, any> = {};
+      
+      const registryEntries = Object.entries(FEATURE_REGISTRY);
+      const featureStates = await Promise.all(
+        registryEntries.map(async ([key, entry]) => {
+          const enabled = await this.getBoolean(entry.enableKey, entry.defaultEnabled);
+          const visible = await this.getBoolean(entry.visibleKey, entry.defaultVisible);
+          return {
+            key,
+            enabled,
+            visible,
+            platform: entry.platform,
+            label: entry.label,
+            description: entry.description,
+            roles: entry.roles,
+            dependsOn: entry.dependsOn,
+            routePrefixes: entry.routePrefixes
+          };
+        })
+      );
+
+      for (const state of featureStates) {
+        features[state.key] = {
+          enabled: state.enabled,
+          visible: state.visible,
+          maintenance: maintenanceMode,
+          platform: state.platform,
+          label: state.label,
+          description: state.description,
+          roles: state.roles,
+          dependsOn: state.dependsOn,
+          routePrefixes: state.routePrefixes
+        };
+      }
+
+      // Get the absolute maximum updatedAt from the database settings/route tables for absolute data synchronization
+      const [latestSetting, latestRoute] = await Promise.all([
+        prisma.systemSetting.findFirst({
+          orderBy: { updatedAt: "desc" },
+          select: { updatedAt: true }
+        }).catch(() => null),
+        prisma.routeToggle.findFirst({
+          orderBy: { updatedAt: "desc" },
+          select: { updatedAt: true }
+        }).catch(() => null)
+      ]);
+
+      let maxDbDate = new Date(0);
+      if (latestSetting?.updatedAt) {
+        maxDbDate = new Date(latestSetting.updatedAt);
+      }
+      if (latestRoute?.updatedAt) {
+        const d = new Date(latestRoute.updatedAt);
+        if (d > maxDbDate) maxDbDate = d;
+      }
+
+      const finalUpdatedAt = maxDbDate.getTime() > 0 
+        ? maxDbDate.toISOString() 
+        : this.appConfigUpdatedAt;
+
+      const generatedAt = new Date().toISOString();
+      // Enforce 100% deterministic timestamp-based version representing database state
+      const version = new Date(finalUpdatedAt).getTime();
+
+      const rawConfig = {
+        version,
+        generatedAt,
+        updatedAt: finalUpdatedAt,
+        maintenanceMode,
+        readOnlyMode,
+        features
+      };
+
+      // Add debug metadata in development environments
+      if (process.env.NODE_ENV === "development") {
+        (rawConfig as any)._debug = {
+          registryKeysCount: registryEntries.length,
+          activeFeaturesCount: Object.values(features).filter(f => f.enabled).length,
+          cacheWarmedAt: generatedAt,
+          dbStatus: "CONNECTED",
+          latencies: {
+            appConfigRefreshMs: Date.now() - now
+          }
+        };
+      }
+
+      // Perform strict Zod schema validation to verify shape integrity
+      const validatedConfig = AppConfigResponseSchema.parse(rawConfig);
+
+      // Cache validation success: persist snapshot globally
+      this.appConfigCache = Object.freeze(structuredClone(validatedConfig));
+      this.appConfigExpiresAt = now + this.APP_CONFIG_TTL;
+
+      if (redis) {
+        await redis.set("APP_CONFIG:SNAPSHOT:v2", JSON.stringify(validatedConfig), { ex: 24 * 60 * 60 }).catch(() => {});
+      }
+
+      return this.appConfigCache;
+    } catch (err: any) {
+      logger.error({ message: "❌ Failed validating or loading dynamic app config. Falling back...", error: err.message });
+      
+      // Preserve last known good config to prevent breaking the client
+      if (this.appConfigCache) {
+        logger.info("Reusing previous last-known-good AppConfig cache to prevent layout crash.");
+        return this.appConfigCache;
+      }
+
+      // If no cache exists, load default fallbacks safely
+      const fallback = this.buildFallbackConfig();
+      this.appConfigCache = fallback;
+      this.appConfigExpiresAt = Date.now() + 10 * 1000; // shorter TTL for recovery
+      return fallback;
+    } finally {
+      this.isRefreshingAppConfig = false;
+    }
+  }
+
+  private buildFallbackConfig(): AppConfigResponse {
+    const defaultTime = new Date().toISOString();
+    
+    // Construct default features from FEATURE_REGISTRY dynamically
+    const features: Record<string, any> = {};
+    for (const [key, entry] of Object.entries(FEATURE_REGISTRY)) {
+      features[key] = {
+        enabled: entry.defaultEnabled,
+        visible: entry.defaultVisible,
+        maintenance: false,
+        platform: entry.platform,
+        label: entry.label,
+        description: entry.description,
+        roles: entry.roles,
+        dependsOn: entry.dependsOn,
+        routePrefixes: entry.routePrefixes
+      };
+    }
+
+    return {
+      version: 1000,
+      generatedAt: defaultTime,
+      updatedAt: defaultTime,
+      maintenanceMode: false,
+      readOnlyMode:    false,
+      features,
+    };
   }
 
   // ─── Caching & Rebuild Operations ──────────────────────────────────────────
@@ -264,6 +547,10 @@ export class SystemSettingService {
     this.debouncedRebuildAllCaches();
     this.debouncedRebuildAuditCaches();
 
+    // Synchronously invalidate local memory caches immediately to prevent race conditions in fast subsequent requests
+    this.localSystemSettingsCache = null;
+    this.localSystemSettingsExpiresAt = 0;
+
     // Invalidate the full app-config blob since it depends on these settings
     await this.triggerChange();
 
@@ -453,6 +740,11 @@ export class SystemSettingService {
     
     this.debouncedRebuildRouteCaches();
     this.debouncedRebuildAuditCaches();
+
+    // Synchronously invalidate local memory caches immediately to prevent race conditions in fast subsequent requests
+    this.localRouteToggleCache = null;
+    this.localRouteToggleExpiresAt = 0;
+
     await this.triggerChange();
 
     return updated;
@@ -476,21 +768,18 @@ export class SystemSettingService {
   // ─── Bulk Operations ───────────────────────────────────────────────────────
 
   async bulkToggleModule(moduleKey: string, enabled: boolean, changedById: string) {
-    // 1. Find all routes and settings belonging to this module
     const allRoutes = (await this.getAllRouteToggles()) || [];
     const allSettings = (await this.getAll()) || [];
 
     const moduleRoutes = allRoutes.filter((r: any) => r.moduleKey === moduleKey || r.groupKey === moduleKey);
     const moduleSettings = allSettings.filter((s: any) => s.groupKey === moduleKey && s.type === "BOOLEAN");
 
-    // 2. Toggle all routes
     for (const route of moduleRoutes) {
       if (route.enabled !== enabled) {
         await this.updateRouteToggleById(route.id, enabled, changedById, `Bulk module toggle for ${moduleKey}`);
       }
     }
 
-    // 3. Toggle all settings
     for (const setting of moduleSettings) {
       if ((setting.value === "true") !== enabled) {
         await this.updateById(setting.id, enabled ? "true" : "false", changedById, `Bulk module toggle for ${moduleKey}`);
@@ -509,7 +798,6 @@ export class SystemSettingService {
    * Used by globalRouteGuard on every request.
    */
   async isRouteEnabled(method: string, path: string): Promise<boolean> {
-    // Check local memory route toggles cache first (takes <1ms)
     if (this.localRouteToggleCache) {
       const found = this.localRouteToggleCache.find((r: any) => 
         r.method.toUpperCase() === method.toUpperCase() && 
@@ -527,7 +815,7 @@ export class SystemSettingService {
     }
 
     const toggle = await routeRepo.findByMethodAndPath(method, path);
-    if (!toggle) return true; // not registered = always ON
+    if (!toggle) return true;
 
     if (redis) {
       await redis.set(cacheKey, String(toggle.enabled), { ex: CACHE_TTL_SECONDS }).catch(() => {});
@@ -586,13 +874,15 @@ export class SystemSettingService {
     await redis.del(this.buildRouteCacheKey(method, path)).catch(() => {});
   }
 
-  private async invalidateAppConfigCache() {
+  private invalidateAppConfigCache() {
+    this.appConfigCache = null;
+    this.appConfigExpiresAt = 0;
+
     const redis = getRedisClient();
     if (!redis) return;
-    await redis.del(APPCONFIG_CACHE_KEY).catch(() => {});
-    await redis.del("APP_CONFIG:SNAPSHOT:v1").catch(() => {});
+    redis.del(APPCONFIG_CACHE_KEY).catch(() => {});
+    redis.del("APP_CONFIG:SNAPSHOT:v2").catch(() => {});
   }
 }
 
-// Singleton export for use across middleware and crons
 export const systemSettingsService = new SystemSettingService();
