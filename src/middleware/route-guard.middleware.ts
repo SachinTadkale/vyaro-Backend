@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { UserRole } from "@prisma/client";
 import { systemSettingsService } from "../modules/system-settings/v1/system-setting.service";
 import { SystemSettingKey } from "../modules/system-settings/v1/system-setting.types";
+import { logger } from "../utils/logger";
 
 // ── Route bypass definitions ──────────────────────────────────────────────────
 
@@ -76,11 +77,20 @@ export const globalRouteGuard = async (
       return next();
     }
 
+    // Load centralized config once dynamically (<1ms memory cache, <30s TTL)
+    const config = await systemSettingsService.getAppConfig();
+
     // ── 3. MAINTENANCE_MODE ───────────────────────────────────────────────────
-    const inMaintenance = await systemSettingsService.getBoolean(
-      SystemSettingKey.MAINTENANCE_MODE,
-      false
-    );
+    const inMaintenance = config.maintenanceMode;
+
+    logger.info({
+      source: 'global-route-guard',
+      maintenanceMode: inMaintenance,
+      readOnlyMode: config.readOnlyMode,
+      path: rawPath,
+      method,
+      timestamp: new Date(),
+    });
 
     if (inMaintenance) {
       return res.status(503).json({
@@ -93,12 +103,7 @@ export const globalRouteGuard = async (
 
     // ── 4. READ_ONLY_MODE ─────────────────────────────────────────────────────
     if (WRITE_METHODS.has(method)) {
-      const isReadOnly = await systemSettingsService.getBoolean(
-        SystemSettingKey.READ_ONLY_MODE,
-        false
-      );
-
-      if (isReadOnly) {
+      if (config.readOnlyMode) {
         return res.status(503).json({
           success:  false,
           readOnly: true,
