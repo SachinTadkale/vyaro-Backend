@@ -389,6 +389,7 @@ export const loginCompany = async (
   const token = generateToken({
     userId: company.companyId,
     companyId: company.companyId,
+    role: UserRole.COMPANY,
     actorType: "COMPANY",
   });
 
@@ -410,13 +411,9 @@ const findAdminByEmail = async (email: string) => {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new ApiError(404, "User not found");
 
-  // Allow both ADMIN and OWNER roles
-  if (user.role !== UserRole.ADMIN && user.role !== UserRole.OWNER)
-    throw new ApiError(403, "This flow is only for admins.");
-
-  // STRICTOR GUARD: OWNER role MUST be the specified email
-  if (user.role === UserRole.OWNER && user.email !== "sachintadkale9960@gmail.com") {
-    throw new ApiError(403, "Unauthorized owner access.");
+  // Allow both ADMIN and OWNER roles on the admin auth flow
+  if (user.role !== UserRole.ADMIN && user.role !== UserRole.OWNER) {
+    throw new ApiError(403, "This flow is only for admins and owners.");
   }
 
   return user;

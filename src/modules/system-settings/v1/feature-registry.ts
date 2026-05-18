@@ -15,7 +15,9 @@ export const FeatureRegistryEntrySchema = z.object({
   defaultVisible: z.boolean(),
   roles: z.array(z.string()).optional(),
   dependsOn: z.array(z.string()).optional(),
-  category: z.enum(["FEATURE", "CRON", "INTEGRATION", "MAINTENANCE"]).default("FEATURE")
+  category: z
+    .enum(["FEATURE", "CRON", "INTEGRATION", "MAINTENANCE"])
+    .default("FEATURE"),
 });
 
 export type FeatureRegistryEntry = z.infer<typeof FeatureRegistryEntrySchema>;
@@ -31,7 +33,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/marketplace"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   orders: {
     key: "orders",
@@ -44,31 +46,33 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     defaultEnabled: true,
     defaultVisible: true,
     dependsOn: ["marketplace"],
-    category: "FEATURE"
+    category: "FEATURE",
   },
   payments: {
     key: "payments",
     enableKey: "ENABLE_PAYMENTS",
     visibleKey: "VISIBLE_PAYMENTS",
     label: "Payments",
-    description: "Enables online payments, Razorpay checkouts, and transactional queries",
+    description:
+      "Enables online payments, Razorpay checkouts, and transactional queries",
     platform: "BOTH",
     routePrefixes: ["/api/v1/payments"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   delivery: {
     key: "delivery",
     enableKey: "ENABLE_DELIVERY",
     visibleKey: "VISIBLE_DELIVERY",
     label: "Delivery",
-    description: "Allows delivery assignations, tracking maps, and partner matching",
+    description:
+      "Allows delivery assignations, tracking maps, and partner matching",
     platform: "APP",
     routePrefixes: ["/api/v1/deliveries"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   marketRates: {
     key: "marketRates",
@@ -80,19 +84,19 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/market-rates"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   ai: {
     key: "ai",
     enableKey: "ENABLE_AI",
     visibleKey: "VISIBLE_AI",
-    label: "AI Crop Advisor",
-    description: "AI Crop advisor diagnostic and recommendation engine",
+    label: "Saira AI",
+    description: "Saira AI conversational assistant and crop advisory features",
     platform: "BOTH",
-    routePrefixes: ["/api/v1/ai-advisor"],
+    routePrefixes: ["/api/v1/ai"],
     defaultEnabled: false,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   news: {
     key: "news",
@@ -104,7 +108,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/news"],
     defaultEnabled: false,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   qr: {
     key: "qr",
@@ -116,7 +120,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/qr"],
     defaultEnabled: false,
     defaultVisible: false,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   myCrops: {
     key: "myCrops",
@@ -129,7 +133,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     defaultEnabled: true,
     defaultVisible: true,
     roles: ["FARMER", "ADMIN", "OWNER"],
-    category: "FEATURE"
+    category: "FEATURE",
   },
   transactions: {
     key: "transactions",
@@ -141,7 +145,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/transactions"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   wallet: {
     key: "wallet",
@@ -153,7 +157,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/wallet"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   notifications: {
     key: "notifications",
@@ -165,7 +169,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/notifications"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   analytics: {
     key: "analytics",
@@ -178,7 +182,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     defaultEnabled: true,
     defaultVisible: true,
     roles: ["ADMIN", "OWNER", "COMPANY"],
-    category: "FEATURE"
+    category: "FEATURE",
   },
   admin: {
     key: "admin",
@@ -191,7 +195,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     defaultEnabled: true,
     defaultVisible: true,
     roles: ["ADMIN", "OWNER"],
-    category: "FEATURE"
+    category: "FEATURE",
   },
   kyc: {
     key: "kyc",
@@ -203,7 +207,7 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/kyc-records"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
+    category: "FEATURE",
   },
   bank: {
     key: "bank",
@@ -215,6 +219,6 @@ export const FEATURE_REGISTRY: Record<string, FeatureRegistryEntry> = {
     routePrefixes: ["/api/v1/bank-accounts"],
     defaultEnabled: true,
     defaultVisible: true,
-    category: "FEATURE"
-  }
+    category: "FEATURE",
+  },
 };

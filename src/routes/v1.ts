@@ -47,6 +47,9 @@ import deliveryPartnerRoutes from "../modules/delivery-partners/v1/delivery-part
 import broadcastRoutes from "../modules/broadcasts/v1/broadcast.routes";
 import leadsRoutes from "../modules/leads/v1/leads.routes";
 
+// AI Assistant routes.
+import aiRoutes from "../modules/ai-platform/routes/ai-platform.routes";
+
 // Transaction routes.
 import transactionRoutes from "../modules/transactions/v1/transactions.routes";
 import { healthCheck } from "../modules/health/health.controller";
@@ -111,6 +114,7 @@ apiV1Router.get("/app-config", getAppConfig);
 apiV1Router.use("/banks", bankRoutes);
 apiV1Router.use("/broadcasts", broadcastRoutes);
 apiV1Router.use("/leads", leadsRoutes);
+apiV1Router.use("/ai", featureGuard("ENABLE_AI"), aiRoutes);
 
 /* ---------------- OTHER ---------------- */
 apiV1Router.use('/test-mail',testMailRoutes);

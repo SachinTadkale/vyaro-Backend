@@ -436,7 +436,8 @@ Request body:
   "password": "secret123",
   "address": "Pune",
   "email": "ravi@example.com",
-  "gender": "MALE"
+  "gender": "MALE",
+  "role": "FARMER"
 }
 ```
 
@@ -2412,6 +2413,243 @@ Sample success response:
     "docType": "AADHAAR",
     "docNo": "123412341234"
   }
+}
+```
+
+## P. Saira AI Module
+
+Base path: `/api/v1/ai`
+
+Use `FARMER_TOKEN`, `COMPANY_TOKEN`, `DELIVERY_PARTNER_TOKEN`, or `ADMIN_TOKEN` as specified.
+
+### P.1 Saira AI Chat (Streaming & Non-Streaming)
+
+- Purpose: Start a new or continue an existing AI conversational chat session with Saira Assistant.
+- Method: `POST`
+- Route: `/api/v1/ai/chat` (Optional query parameter: `?stream=true` to enable Server-Sent Events streaming)
+- Access: Authenticated users (`FARMER`, `COMPANY`, `DELIVERY_PARTNER`, `ADMIN`, `OWNER`)
+
+Request body:
+
+```json
+{
+  "message": "What is the best crop to grow in Pune during monsoon?",
+  "sessionId": "optional-session-uuid",
+  "language": "en"
+}
+```
+
+Sample success response (Non-streaming):
+
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "6fa8b7a2-9b2c-4b5d-8e7f-6a5b4c3d2e1f",
+    "assistantMessage": "For Pune during the monsoon (Kharif season), high-value crops like Rice, Soybeans, Maize, and Sugarcane are highly recommended due to the rich black cotton soil..."
+  }
+}
+```
+
+### P.2 Get AI Prompts (Action Badges)
+
+- Purpose: Retrieve quick action prompt chips/badges based on the user's role context.
+- Method: `GET`
+- Route: `/api/v1/ai/prompts`
+- Access: Authenticated users
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "prompt-id-1",
+      "title": "Analyze Yield",
+      "roleContext": "FARMER",
+      "badgeLabel": "Crop Diagnostic",
+      "promptTemplate": "Help me diagnose crop health from soil inputs..."
+    }
+  ]
+}
+```
+
+### P.3 Resolve Badge Prompt
+
+- Purpose: Pre-resolve prompt templates into complete, customized system instructions.
+- Method: `POST`
+- Route: `/api/v1/ai/badge-prompt`
+- Access: Authenticated users
+
+Request body:
+
+```json
+{
+  "badgeLabel": "Crop Diagnostic",
+  "language": "en"
+}
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "badgeLabel": "Crop Diagnostic",
+    "resolvedPrompt": "You are a crop advisor. Please diagnose the following crop details..."
+  }
+}
+```
+
+### P.4 Get Active Chat Sessions
+
+- Purpose: Retrieve list of all AI chat sessions for the logged-in user.
+- Method: `GET`
+- Route: `/api/v1/ai/sessions`
+- Access: Authenticated users
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "6fa8b7a2-9b2c-4b5d-8e7f-6a5b4c3d2e1f",
+      "roleContext": "FARMER",
+      "title": "Crop Analysis Pune",
+      "lastMessage": "Thanks for the suggestions!",
+      "language": "en",
+      "totalMessages": 4,
+      "createdAt": "2026-05-17T18:49:47.000Z",
+      "updatedAt": "2026-05-17T18:50:12.000Z"
+    }
+  ]
+}
+```
+
+### P.5 Get Chat Session Details & History
+
+- Purpose: Fetch the complete list of messages in a specific chat session.
+- Method: `GET`
+- Route: `/api/v1/ai/sessions/:id`
+- Access: Authenticated users
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "6fa8b7a2-9b2c-4b5d-8e7f-6a5b4c3d2e1f",
+    "title": "Crop Analysis Pune",
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "USER",
+        "message": "Hi Saira, tell me about Pune soil.",
+        "createdAt": "2026-05-17T18:49:47.000Z"
+      },
+      {
+        "id": "msg-2",
+        "role": "ASSISTANT",
+        "message": "Pune region has rich black cotton soil, which is excellent for retention of moisture...",
+        "createdAt": "2026-05-17T18:49:52.000Z"
+      }
+    ]
+  }
+}
+```
+
+### P.6 Archive Chat Session
+
+- Purpose: Archive an AI chat session.
+- Method: `POST`
+- Route: `/api/v1/ai/sessions/:id/archive`
+- Access: Authenticated users
+
+Request body:
+
+```json
+{}
+```
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "message": "Session archived successfully"
+}
+```
+
+### P.7 Delete Chat Session (Soft Delete)
+
+- Purpose: Soft-delete/archive an active AI chat session.
+- Method: `DELETE`
+- Route: `/api/v1/ai/sessions/:id`
+- Access: Authenticated users
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "message": "Session deleted successfully"
+}
+```
+
+### P.8 [Admin] Get AI Cost & Latency Analytics
+
+- Purpose: Fetch global metrics on token costs, request latency, and failure rates (admin only).
+- Method: `GET`
+- Route: `/api/v1/ai/admin/analytics`
+- Access: Admin / Owner only (`ADMIN_TOKEN`)
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalTokens": 142050,
+    "averageResponseTimeMs": 482.5,
+    "failureRate": 0.02,
+    "activeSessions": 12,
+    "usageByModel": [
+      {
+        "model": "gemini-1.5-flash",
+        "count": 285
+      }
+    ]
+  }
+}
+```
+
+### P.9 [Admin] Get AI Usage Summary by User
+
+- Purpose: Get aggregated token and message usage summaries grouped by active user accounts.
+- Method: `GET`
+- Route: `/api/v1/ai/admin/usage`
+- Access: Admin / Owner only (`ADMIN_TOKEN`)
+
+Sample success response:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "sessionId": "6fa8b7a2-9b2c-4b5d-8e7f-6a5b4c3d2e1f",
+      "userId": "user-uuid",
+      "companyId": null,
+      "roleContext": "FARMER",
+      "totalTokens": 4500,
+      "messageCount": 18
+    }
+  ]
 }
 ```
 
