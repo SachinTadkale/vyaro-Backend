@@ -1,23 +1,18 @@
 import { NextFunction, Request, Response } from "express";
+import { FEATURE_REGISTRY } from "../modules/system-settings/v1/feature-registry";
 import { systemSettingsService } from "../modules/system-settings/v1/system-setting.service";
+import { logger } from "../utils/logger";
 
-const settingToFeatureKeyMap: Record<string, string> = {
-  ENABLE_MARKETPLACE: "marketplace",
-  ENABLE_ORDERS: "orders",
-  ENABLE_PAYMENTS: "payments",
-  ENABLE_DELIVERY: "delivery",
-  ENABLE_MARKET_RATES: "marketRates",
-  ENABLE_AI: "ai",
-  ENABLE_NEWS: "news",
-  ENABLE_QR: "qr",
-  ENABLE_MY_CROPS: "myCrops",
-};
+function defaultEnabledForKey(settingKey: string): boolean {
+  const entry = Object.values(FEATURE_REGISTRY).find((e) => e.enableKey === settingKey);
+  return entry?.defaultEnabled ?? true;
+}
 
 /**
  * Middleware: featureGuard
  *
  * Module-level (Tier 1) runtime toggle guard.
- * Checks a SystemSetting boolean key — Redis-backed, sub-millisecond.
+ * Reads the setting key directly via Redis → DB (never the AppConfig memory snapshot).
  *
  * Usage:
  *   router.use('/marketplace', featureGuard('ENABLE_MARKETPLACE'), marketplaceRoutes);
@@ -27,14 +22,28 @@ export const featureGuard = (settingKey: string) => {
     // Owner always bypasses feature guards
     if (req.user?.role === "OWNER") return next();
 
-    const config = await systemSettingsService.getAppConfig();
-    const featureKey = settingToFeatureKeyMap[settingKey];
-    
-    let enabled = true;
-    if (featureKey) {
-      enabled = (config.features as any)[featureKey]?.enabled ?? true;
-    } else {
-      enabled = await systemSettingsService.getBoolean(settingKey, true);
+    const enabled = await systemSettingsService.getBoolean(
+      settingKey,
+      defaultEnabledForKey(settingKey)
+    );
+
+    if (process.env.NODE_ENV === "development") {
+      const [dbRecord, redisValue, settingsVersion] = await Promise.all([
+        systemSettingsService.getByKey(settingKey),
+        systemSettingsService.getSettingCacheValue(settingKey),
+        systemSettingsService.getSettingsVersion(),
+      ]);
+
+      logger.info({
+        event: "feature_guard_check",
+        settingKey,
+        enabled,
+        dbValue: dbRecord?.value ?? null,
+        redisValue,
+        settingsVersion,
+        userId: req.user?.userId,
+        role: req.user?.role,
+      });
     }
 
     if (!enabled) {

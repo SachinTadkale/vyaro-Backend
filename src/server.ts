@@ -10,9 +10,12 @@ dns.setDefaultResultOrder("ipv4first");
 
 dotenv.config();
 
+import http from "http";
 import app from "./app";
 import prisma from "./config/prisma";
+import { initSocketServer } from "./config/socket";
 import { bootstrapRuntimeControls } from "./modules/system/system.bootstrap";
+import { bootstrapAiTemplates } from "./modules/ai/ai.bootstrap";
 
 const serverPort = process.env.PORT || 5000;
 
@@ -25,8 +28,14 @@ async function bootstrapApp() {
     // 2. Initialize runtime controls (seeds defaults + prepares Redis)
     await bootstrapRuntimeControls();
 
-    // 3. Start Express server only after infrastructure is ready
-    app.listen(serverPort, () => {
+    // 3. Seed AI templates dynamically
+    await bootstrapAiTemplates();
+
+    // 4. Wrap Express app with http server and boot Socket.IO real-time engine
+    const server = http.createServer(app);
+    initSocketServer(server);
+
+    server.listen(serverPort, () => {
       console.log(`🚀 Server running on port http://localhost:${serverPort}`);
     });
   } catch (error) {

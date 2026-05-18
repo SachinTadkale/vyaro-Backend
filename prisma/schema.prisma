@@ -253,6 +253,14 @@ model User {
   settingAudits     SystemSettingAudit[] @relation("SettingAuditChangedBy")
   settingUpdates    SystemSetting[]      @relation("SettingUpdatedBy")
   routeToggleAudits RouteToggleAudit[]   @relation("RouteToggleAuditChangedBy")
+  settingEvents     SystemSettingEvent[] @relation("SettingEventTriggeredBy")
+  aiChatSessions    AiChatSession[]
+
+  // AI Governance relations
+  aiUsageLogs           AIUsageLog[]
+  restrictionsReceived  UserAIRestriction[]  @relation("RestrictionTarget")
+  restrictionsImposed   UserAIRestriction[]  @relation("RestrictionImposedBy")
+  restrictionCodesCreated RestrictionCode[]
 
   @@index([phone_no])
 }
@@ -294,7 +302,9 @@ model Company {
   inventories  Inventory[]
   orders       Order[]
   payments     Payment[]
-  transactions Transaction[] @relation("CompanyTransactions")
+  transactions   Transaction[] @relation("CompanyTransactions")
+  aiChatSessions AiChatSession[]
+  aiUsageLogs    AIUsageLog[]
 }
 
 model Inventory {
@@ -769,6 +779,12 @@ model MarketRate {
 // SYSTEM CONTROLS
 //////////////////////
 
+enum SettingScope {
+  GLOBAL
+  COMPANY
+  USER
+}
+
 enum SettingType {
   BOOLEAN
   STRING
@@ -800,6 +816,9 @@ model SystemSetting {
 
   type            SettingType     @default(BOOLEAN)
   category        SettingCategory @default(FEATURE)
+
+  scopeType       SettingScope    @default(GLOBAL)
+  scopeId         String?
 
   groupKey        String?
   description     String?
@@ -834,8 +853,8 @@ model SystemSettingAudit {
   oldValue    String
   newValue    String
 
-  changedById String
-  changedBy   User           @relation("SettingAuditChangedBy", fields: [changedById], references: [user_id])
+  changedById String?
+  changedBy   User?          @relation("SettingAuditChangedBy", fields: [changedById], references: [user_id])
 
   reason      String?
 
@@ -925,4 +944,341 @@ model ExternalSyncStatus {
   updatedAt        DateTime               @updatedAt
 }
 
+//////////////////////
+// AI ASSISTANT MODELS
+//////////////////////
+
+enum AiRoleContext {
+  FARMER
+  COMPANY
+  ADMIN
+  OWNER
+  DELIVERY_PARTNER
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AiChatStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+model AiChatSession {
+  id              String          @id @default(cuid())
+  userId          String?
+  companyId       String?
+  wrapperId       String?
+  roleContext     AiRoleContext
+
+  title           String?
+  lastMessage     String?
+  language        String? // en hi mr
+  totalMessages   Int             @default(0)
+
+  status          AiChatStatus    @default(ACTIVE)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?       // Soft delete support
+  messages        AiChatMessage[]
+
+  user            User?           @relation(fields: [userId], references: [user_id], onDelete: Cascade)
+  company         Company?        @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model AiChatMessage {
+  id              String          @id @default(cuid())
+  sessionId       String
+  role            AiMessageRole
+
+  message         String          @db.Text
+  responseTimeMs  Int?
+  tokenUsage      Int?
+  modelUsed       String?
+  providerUsed    String?         // Track actual model provider (e.g. GEMINI, OPENROUTER)
+  metadata        Json?
+
+  createdAt       DateTime        @default(now())
+  session         AiChatSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model AiPromptTemplate {
+  id              String          @id @default(cuid())
+  title           String
+
+  roleContext     AiRoleContext
+  badgeLabel      String
+  promptTemplate  String          @db.Text
+  isActive        Boolean         @default(true)
+
+  createdAt       DateTime        @default(now())
+  @@index([roleContext])
+}
+
+//////////////////////
+// NEW ENTERPRISE AI WRAPPER ENGINE
+//////////////////////
+
+enum AiProvider {
+  OPENROUTER
+  GEMINI
+  OPENAI
+  CLAUDE
+  OLLAMA
+  GROQ
+}
+
+enum AiWrapperStatus {
+  ACTIVE
+  DISABLED
+  MAINTENANCE
+}
+
+model AiWrapper {
+  id                String          @id @default(cuid())
+  key               String
+  version           Int             @default(1)
+  status            AiWrapperStatus @default(ACTIVE)
+
+  name              String
+  description       String?
+
+  provider          AiProvider
+  modelName         String
+
+  systemPrompt      String          @db.Text
+  temperature       Float           @default(0.7)
+  maxTokens         Int             @default(1200)
+
+  // Declarative access controls
+  allowedRoles      Json            // Array of UserRole strings (e.g. ["FARMER", "COMPANY"])
+  
+  // Declarative prompt interpolation config
+  contextConfig     Json?           // Required context flags (e.g. ["WEATHER", "MARKET_RATES"])
+  badgeConfig       Json?           // Suggested quick-action badges
+  moderationConfig  Json?           // System instruction filter rules
+  responseConfig    Json?           // Output JSON schema template if needed
+
+  // Rate limiting policies
+  rateLimitPerMin   Int             @default(20)
+
+  // Capability toggles
+  isStreaming       Boolean         @default(true)
+  supportsTools     Boolean         @default(false)
+  supportsVision    Boolean         @default(false)
+  supportsJsonMode  Boolean         @default(false)
+  isPublic          Boolean         @default(false)
+
+  // Soft Delete & Timestamps
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+
+  @@unique([key, version]) // Enforces immutable configuration version chains
+  @@index([key, status])
+}
+
+model AiWrapperUsage {
+  id              String   @id @default(cuid())
+  wrapperId       String
+  userId          String?
+  companyId       String?
+  success         Boolean
+
+  tokenUsage      Int?
+  responseTimeMs  Int?
+  errorMessage    String?
+
+  // Cost tracking ledger
+  estimatedCost   Float    @default(0.0)
+
+  createdAt       DateTime @default(now())
+  deletedAt       DateTime?
+
+  @@index([wrapperId])
+  @@index([createdAt])
+}
+
+model SystemSettingEvent {
+  id                    String   @id @default(cuid())
+
+  eventType             String
+
+  settingKeys           Json
+
+  triggeredById         String?
+  triggeredBy           User?    @relation("SettingEventTriggeredBy", fields: [triggeredById], references: [user_id])
+
+  settingsVersion       Int
+
+  affectedClients       Int?
+
+  broadcastDurationMs   Int?
+
+  propagationStatus     String?
+
+  metadata              Json?
+
+  createdAt             DateTime @default(now())
+
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([settingsVersion])
+}
+
+
+//////////////////////
+// AI GOVERNANCE & BILLING
+//////////////////////
+
+enum AIUsageStatus {
+  SUCCESS
+  FAILED
+  BLOCKED
+  RATE_LIMITED
+  QUOTA_EXCEEDED
+}
+
+enum RestrictionSeverity {
+  INFO
+  WARNING
+  BLOCK
+  CRITICAL
+}
+
+/// Per-request AI usage log. Written after every AI completion attempt.
+model AIUsageLog {
+  id               String        @id @default(cuid())
+
+  userId           String?
+  user             User?         @relation(fields: [userId], references: [user_id])
+
+  companyId        String?
+  company          Company?      @relation(fields: [companyId], references: [companyId], onDelete: Cascade)
+
+  role             UserRole
+
+  provider         AiProvider
+  modelName        String
+
+  promptTokens     Int           @default(0)
+  completionTokens Int           @default(0)
+  totalTokens      Int           @default(0)
+
+  estimatedCost    Float?
+
+  requestPreview   String?       @db.VarChar(300)
+  responsePreview  String?       @db.VarChar(300)
+
+  route            String?
+  module           String?
+
+  status           AIUsageStatus
+  latencyMs        Int?
+  sessionId        String?
+
+  contextHash        String?
+  largestContributor String?
+
+  createdAt        DateTime      @default(now())
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@index([provider])
+  @@index([modelName])
+  @@index([status])
+  @@index([role])
+}
+
+/// Enterprise restriction code registry. Created by OWNER.
+model RestrictionCode {
+  id            String              @id @default(cuid())
+
+  code          String              @unique
+
+  title         String
+  description   String
+
+  severity      RestrictionSeverity
+
+  httpStatus    Int                 @default(403)
+
+  isActive      Boolean             @default(true)
+
+  createdById   String
+  createdBy     User                @relation(fields: [createdById], references: [user_id])
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  restrictions  UserAIRestriction[]
+
+  @@index([code])
+  @@index([severity])
+  @@index([isActive])
+}
+
+/// Per-user active AI restrictions. Applied by OWNER or ADMIN.
+model UserAIRestriction {
+  id                String          @id @default(cuid())
+
+  userId            String
+  user              User            @relation("RestrictionTarget", fields: [userId], references: [user_id])
+
+  restrictionCodeId String
+  restrictionCode   RestrictionCode @relation(fields: [restrictionCodeId], references: [id])
+
+  imposedById       String
+  imposedBy         User            @relation("RestrictionImposedBy", fields: [imposedById], references: [user_id])
+
+  reason            String?
+
+  expiresAt         DateTime?
+
+  isActive          Boolean         @default(true)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([userId, isActive])
+}
+
+/// AI token quota configuration per role or per individual user.
+/// User-level quota overrides role-level quota.
+model AIQuota {
+  id                String    @id @default(cuid())
+
+  role              UserRole?
+
+  userId            String?   @unique
+
+  monthlyTokenLimit Int       @default(20000)
+
+  usedTokens        Int       @default(0)
+
+  resetAt           DateTime
+
+  isUnlimited       Boolean   @default(false)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([role])
+  @@index([userId])
+}
 

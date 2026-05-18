@@ -14,6 +14,7 @@ import {
 import { z } from "zod";
 import { FEATURE_REGISTRY, FeatureRegistryEntry } from "./feature-registry";
 import prisma from "../../../config/prisma";
+import { systemSettingEventService } from "./system-setting-event.service";
 
 const settingRepo = new SystemSettingRepository();
 const routeRepo   = new RouteToggleRepository();
@@ -71,6 +72,7 @@ export class SystemSettingService {
   private appConfigExpiresAt = 0;
   private appConfigUpdatedAt = new Date().toISOString();
   private isRefreshingAppConfig = false;
+  private appConfigRefreshGeneration = 0;
   private readonly APP_CONFIG_TTL = 30 * 1000; // 30 seconds max TTL
 
   // Rebuilding states (local single-flight locks)
@@ -83,18 +85,209 @@ export class SystemSettingService {
   private routesRebuildTimeout: NodeJS.Timeout | null = null;
   private auditsRebuildTimeout: NodeJS.Timeout | null = null;
 
+  // Realtime redseign variables
+  private settingsVersion = 1;
+  private localCooldowns = new Map<string, number>();
+  private pendingBroadcastKeys = new Set<string>();
+  private socketBroadcastTimeout: NodeJS.Timeout | null = null;
+
+  private readonly COOLDOWN_DURATION_SEC = 15;
+  private readonly CRITICAL_KEYS = ["ENABLE_AI", "ENABLE_PAYMENTS", "ENABLE_MARKETPLACE", "MAINTENANCE_MODE"];
+
   registerOnChange(callback: () => Promise<void>) {
     this.onChangeCallbacks.push(callback);
   }
 
-  async triggerChange() {
+  // ─── Versioning & Synchronized State ────────────────────────────────────────
+
+  async getSettingsVersion(): Promise<number> {
+    const redis = getRedisClient();
+    if (redis) {
+      const ver = await redis.get("SYSTEM_SETTINGS:VERSION").catch(() => null);
+      if (ver) {
+        this.settingsVersion = parseInt(String(ver)) || 1;
+        return this.settingsVersion;
+      }
+    }
+    return this.settingsVersion;
+  }
+
+  async incrementSettingsVersion(): Promise<number> {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        const nextVer = await redis.incr("SYSTEM_SETTINGS:VERSION").catch(() => null);
+        if (nextVer) {
+          this.settingsVersion = Number(nextVer);
+          logger.info({
+            event: "settings_version_incremented",
+            version: this.settingsVersion,
+            storage: "REDIS"
+          });
+          return this.settingsVersion;
+        }
+      } catch (err: any) {
+        logger.error({
+          message: "Failed to increment settings version in Redis",
+          error: err.message
+        });
+      }
+    }
+    this.settingsVersion += 1;
+    logger.info({
+      event: "settings_version_incremented",
+      version: this.settingsVersion,
+      storage: "MEMORY"
+    });
+    return this.settingsVersion;
+  }
+
+  // ─── Cooldown Management (Redis-backed) ────────────────────────────────────
+
+  async checkAndSetCooldown(key: string, triggeredById: string | null = null): Promise<void> {
+    if (!this.CRITICAL_KEYS.includes(key)) return;
+
+    const redis = getRedisClient();
+    const redisKey = `SYSTEM_SETTINGS:COOLDOWN:${key}`;
+
+    if (redis) {
+      const exists = await redis.get(redisKey).catch(() => null);
+      if (exists) {
+        logger.warn({
+          event: "cooldown_blocked",
+          key,
+          storage: "REDIS"
+        });
+        const currentVersion = await this.getSettingsVersion();
+        const ttl = await redis.ttl(redisKey).catch(() => 15);
+        await systemSettingEventService.logCooldownBlocked({
+          settingKey: key,
+          remainingCooldownSecs: ttl > 0 ? ttl : 15,
+          triggeredById,
+          settingsVersion: currentVersion,
+        });
+        throw new Error(`Cooldown active: Please wait 15 seconds before toggling ${key} again.`);
+      }
+      await redis.set(redisKey, "locked", { ex: this.COOLDOWN_DURATION_SEC }).catch(() => {});
+      logger.info({
+        event: "cooldown_set",
+        key,
+        storage: "REDIS"
+      });
+      return;
+    }
+
+    // Memory Fallback
+    const now = Date.now();
+    const lastChanged = this.localCooldowns.get(key) || 0;
+    if (now - lastChanged < this.COOLDOWN_DURATION_SEC * 1000) {
+      const remaining = Math.ceil((this.COOLDOWN_DURATION_SEC * 1000 - (now - lastChanged)) / 1000);
+      logger.warn({
+        event: "cooldown_blocked",
+        key,
+        remainingSeconds: remaining,
+        storage: "MEMORY"
+      });
+      const currentVersion = await this.getSettingsVersion();
+      await systemSettingEventService.logCooldownBlocked({
+        settingKey: key,
+        remainingCooldownSecs: remaining,
+        triggeredById,
+        settingsVersion: currentVersion,
+      });
+      throw new Error(`Cooldown active: Please wait ${remaining} seconds before toggling ${key} again.`);
+    }
+    this.localCooldowns.set(key, now);
+    logger.info({
+      event: "cooldown_set",
+      key,
+      storage: "MEMORY"
+    });
+  }
+
+  // ─── Value Validation (Typed checks) ───────────────────────────────────────
+
+  validateSettingValue(key: string, value: string, type: string) {
+    logger.info({
+      event: "validate_setting_value_start",
+      key,
+      value,
+      type
+    });
+
+    if (type === "BOOLEAN") {
+      if (value !== "true" && value !== "false") {
+        throw new Error(`Validation failed for setting '${key}': Value must be 'true' or 'false'.`);
+      }
+    } else if (type === "NUMBER") {
+      if (isNaN(Number(value))) {
+        throw new Error(`Validation failed for setting '${key}': Value must be a valid number.`);
+      }
+    } else if (type === "JSON") {
+      try {
+        JSON.parse(value);
+      } catch (err) {
+        throw new Error(`Validation failed for setting '${key}': Value must be valid JSON.`);
+      }
+    }
+
+    logger.info({
+      event: "validate_setting_value_success",
+      key,
+      value
+    });
+  }
+
+  // ─── Cache Hydration (Pre-warming) ──────────────────────────────────────────
+
+  async hydrateCacheOnStartup(): Promise<void> {
+    logger.info("⚡ Starting system settings cache hydration (pre-warming)...");
+    try {
+      // Warm settings version
+      await this.getSettingsVersion();
+
+      // Preload critical setting values into Redis
+      for (const key of this.CRITICAL_KEYS) {
+        const record = await settingRepo.findByKey(key);
+        if (record) {
+          await this.setSettingCache(key, record.value);
+        }
+      }
+
+      // Rebuild and seed caches
+      await this.rebuildSystemSettingsCache();
+      await this.rebuildRouteToggleCache();
+      await this.getAppConfig(true);
+
+      logger.info("⚡ System settings cache hydration completed successfully.");
+    } catch (err: any) {
+      logger.error({
+        message: "Failed to hydrate settings cache on startup",
+        error: err.message
+      });
+    }
+  }
+
+  // ─── Realtime Change Emitter ───────────────────────────────────────────────
+
+  async triggerChange(changedKeys: string[] = []) {
     // Increment the config updatedAt timestamp synchronously on any write
     this.appConfigUpdatedAt = new Date().toISOString();
 
     // Immediately evict memory cache
     this.invalidateAppConfigCache();
-    
-    // Execute registered callbacks (e.g. redis nuke or rebuild triggers)
+
+    // Increment settings version immediately upon DB write success (Refinement #3)
+    const newVersion = await this.incrementSettingsVersion();
+
+    // Accumulate unique updated keys for debounced emission (Refinement #5)
+    for (const key of changedKeys) {
+      if (this.CRITICAL_KEYS.includes(key)) {
+        this.pendingBroadcastKeys.add(key);
+      }
+    }
+
+    // Execute registered callbacks
     for (const callback of this.onChangeCallbacks) {
       try {
         await callback();
@@ -105,6 +298,35 @@ export class SystemSettingService {
         });
       }
     }
+
+    // Schedule debounced Socket.IO broadcast (Refinement #5)
+    if (this.socketBroadcastTimeout) clearTimeout(this.socketBroadcastTimeout);
+
+    this.socketBroadcastTimeout = setTimeout(() => {
+      const keysToEmit = Array.from(this.pendingBroadcastKeys);
+      this.pendingBroadcastKeys.clear();
+
+      if (keysToEmit.length > 0) {
+        logger.info({
+          event: "socket_debounce_expired_emitting",
+          version: newVersion,
+          keys: keysToEmit
+        });
+
+        try {
+          const { emitSystemSettingsUpdated } = require("../../../config/socket");
+          emitSystemSettingsUpdated({
+            version: newVersion,
+            updatedKeys: keysToEmit
+          });
+        } catch (socketErr: any) {
+          logger.error({
+            message: "Failed to broadcast settings update via Socket.IO",
+            error: socketErr.message
+          });
+        }
+      }
+    }, 3000); // 3-second debounce window (Refinement #5)
   }
 
   // ─── AppConfig Centralized Loading ──────────────────────────────────────────
@@ -181,6 +403,7 @@ export class SystemSettingService {
       return this.appConfigCache; // Prevent duplicate concurrent rebuilds
     }
 
+    const refreshGeneration = this.appConfigRefreshGeneration;
     this.isRefreshingAppConfig = true;
     const redis = getRedisClient();
 
@@ -282,6 +505,27 @@ export class SystemSettingService {
 
       // Perform strict Zod schema validation to verify shape integrity
       const validatedConfig = AppConfigResponseSchema.parse(rawConfig);
+
+      // Discard stale in-flight refreshes invalidated while this rebuild was running
+      if (refreshGeneration !== this.appConfigRefreshGeneration) {
+        logger.info({
+          event: "app_config_refresh_stale_discarded",
+          refreshGeneration,
+          currentGeneration: this.appConfigRefreshGeneration,
+        });
+        return this.getAppConfig(true);
+      }
+
+      if (process.env.NODE_ENV === "development") {
+        const aiEnabled = await this.getBoolean(SystemSettingKey.ENABLE_AI, false);
+        if (validatedConfig.features.ai?.enabled !== aiEnabled) {
+          logger.warn({
+            event: "app_config_ai_mismatch",
+            featureSnapshot: validatedConfig.features.ai?.enabled,
+            getBoolean: aiEnabled,
+          });
+        }
+      }
 
       // Cache validation success: persist snapshot globally
       this.appConfigCache = Object.freeze(structuredClone(validatedConfig));
@@ -528,6 +772,12 @@ export class SystemSettingService {
     const existing = await this.getById(id);
     if (!existing) throw new Error(`Setting ${id} not found`);
 
+    // Enforce distributed/memory cooldown check for critical keys (Refinement #2)
+    await this.checkAndSetCooldown(existing.key, changedById);
+
+    // Enforce typed setting value validation prior to DB write (Refinement #6)
+    this.validateSettingValue(existing.key, value, existing.type);
+
     const updated = await settingRepo.updateById(id, value, changedById);
 
     // Write audit record
@@ -543,6 +793,12 @@ export class SystemSettingService {
     // Immediate Redis key-value cache update
     await this.setSettingCache(existing.key, value);
 
+    // Eagerly drop bulk snapshot so getByKey/getBoolean cannot read stale rows
+    const redis = getRedisClient();
+    if (redis) {
+      await redis.del("SYSTEM_SETTINGS:SNAPSHOT:v1").catch(() => {});
+    }
+
     // Trigger debounced rebuilds
     this.debouncedRebuildAllCaches();
     this.debouncedRebuildAuditCaches();
@@ -551,8 +807,18 @@ export class SystemSettingService {
     this.localSystemSettingsCache = null;
     this.localSystemSettingsExpiresAt = 0;
 
-    // Invalidate the full app-config blob since it depends on these settings
-    await this.triggerChange();
+    // Invalidate the full app-config blob since it depends on these settings and track keys
+    await this.triggerChange([existing.key]);
+
+    // Record operational event (Realtime Observability)
+    const currentVersion = await this.getSettingsVersion();
+    await systemSettingEventService.logSettingsUpdated({
+      settingKeys: [existing.key],
+      triggeredById: changedById,
+      settingsVersion: currentVersion,
+      oldValue: existing.value,
+      newValue: value,
+    });
 
     return updated;
   }
@@ -566,9 +832,15 @@ export class SystemSettingService {
     groupKey:    string;
     isCritical:  boolean;
     createdById: string;
+    scopeType?:  "GLOBAL" | "COMPANY" | "USER";
+    scopeId?:    string;
   }) {
     const existing = await this.getByKey(data.key);
     if (existing) throw new Error(`Setting ${data.key} already exists`);
+
+    // Enforce type-based format check prior to DB write (Refinement #6)
+    const inferredType = data.key.toUpperCase().startsWith("ENABLE_") || data.key.toUpperCase().startsWith("VISIBLE_") ? "BOOLEAN" : "STRING";
+    this.validateSettingValue(data.key, data.value, inferredType);
 
     const setting = await settingRepo.upsertByKey(data);
     
@@ -586,7 +858,18 @@ export class SystemSettingService {
     
     this.debouncedRebuildAllCaches();
     this.debouncedRebuildAuditCaches();
-    await this.triggerChange();
+    await this.triggerChange([setting.key]);
+
+    // Record operational event (Realtime Observability)
+    const currentVersion = await this.getSettingsVersion();
+    await systemSettingEventService.logSettingsUpdated({
+      settingKeys: [setting.key],
+      triggeredById: data.createdById,
+      settingsVersion: currentVersion,
+      oldValue: "NOT_EXIST",
+      newValue: setting.value,
+    });
+
     return setting;
   }
 
@@ -605,17 +888,30 @@ export class SystemSettingService {
   }
 
   /**
+   * Normalizes Redis/cache values. Upstash may return booleans instead of "true"/"false" strings.
+   */
+  private parseBooleanCacheValue(cached: unknown): boolean | null {
+    if (cached === null || cached === undefined) return null;
+    if (typeof cached === "boolean") return cached;
+    const normalized = String(cached).trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+    return null;
+  }
+
+  /**
    * Read a boolean setting: Redis → DB → defaultValue.
    * This is the hot-path used by middleware on every request.
    */
   async getBoolean(key: string, defaultValue = true): Promise<boolean> {
     const cached = await this.getSettingCache(key);
-    if (cached !== null) return cached === "true";
+    const parsedCache = this.parseBooleanCacheValue(cached);
+    if (parsedCache !== null) return parsedCache;
 
-    const record = await this.getByKey(key);
+    // Hot path: read directly from DB — never the bulk settings snapshot cache
+    const record = await settingRepo.findByKey(key);
     if (!record) return defaultValue;
 
-    // Repopulate cache
     await this.setSettingCache(key, record.value);
     return record.value === "true";
   }
@@ -624,11 +920,16 @@ export class SystemSettingService {
     const cached = await this.getSettingCache(key);
     if (cached !== null) return cached;
 
-    const record = await this.getByKey(key);
+    const record = await settingRepo.findByKey(key);
     if (!record) return defaultValue;
 
     await this.setSettingCache(key, record.value);
     return record.value;
+  }
+
+  /** Exposes per-key Redis cache for observability (feature guard debug). */
+  async getSettingCacheValue(key: string): Promise<string | null> {
+    return this.getSettingCache(key);
   }
 
   async getAllAudits(limit = 50, offset = 0) {
@@ -713,7 +1014,7 @@ export class SystemSettingService {
     await this.setRouteCache(toggle.method, toggle.path, toggle.enabled);
     
     this.debouncedRebuildRouteCaches();
-    await this.triggerChange();
+    await this.triggerChange([toggle.moduleKey || ""]);
     return toggle;
   }
 
@@ -745,7 +1046,7 @@ export class SystemSettingService {
     this.localRouteToggleCache = null;
     this.localRouteToggleExpiresAt = 0;
 
-    await this.triggerChange();
+    await this.triggerChange([existing.moduleKey || ""]);
 
     return updated;
   }
@@ -758,7 +1059,7 @@ export class SystemSettingService {
     await this.invalidateRouteCache(existing.method, existing.path);
     
     this.debouncedRebuildRouteCaches();
-    await this.triggerChange();
+    await this.triggerChange([existing.moduleKey || ""]);
   }
 
   async getRouteToggleAudits(routeToggleId: string) {
@@ -875,6 +1176,7 @@ export class SystemSettingService {
   }
 
   private invalidateAppConfigCache() {
+    this.appConfigRefreshGeneration += 1;
     this.appConfigCache = null;
     this.appConfigExpiresAt = 0;
 

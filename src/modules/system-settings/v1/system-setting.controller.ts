@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { systemSettingsService } from "./system-setting.service";
+import { systemSettingEventService } from "./system-setting-event.service";
 
 // ─── System Settings ────────────────────────────────────────────────────────
 
@@ -32,7 +33,8 @@ export const createSetting = async (req: Request, res: Response) => {
 export const getAllSettings = async (req: Request, res: Response) => {
   try {
     const settings = await systemSettingsService.getAll();
-    res.json({ success: true, data: settings });
+    const version = await systemSettingsService.getSettingsVersion();
+    res.json({ success: true, version, settings });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -74,6 +76,9 @@ export const updateSettingById = async (req: Request, res: Response) => {
 
     res.json({ success: true, data: updated, message: "Setting updated" });
   } catch (e: any) {
+    if (e.message && e.message.includes("Cooldown active")) {
+      return res.status(429).json({ success: false, message: e.message });
+    }
     res.status(500).json({ success: false, message: e.message });
   }
 };
@@ -99,6 +104,9 @@ export const updateSettingByKey = async (req: Request, res: Response) => {
 
     res.json({ success: true, data: updated, message: "Setting updated" });
   } catch (e: any) {
+    if (e.message && e.message.includes("Cooldown active")) {
+      return res.status(429).json({ success: false, message: e.message });
+    }
     res.status(500).json({ success: false, message: e.message });
   }
 };
@@ -154,7 +162,8 @@ export const bulkToggleModule = async (req: Request, res: Response) => {
 export const getAllRouteToggles = async (_req: Request, res: Response) => {
   try {
     const routes = await systemSettingsService.getAllRouteToggles();
-    res.json({ success: true, data: routes });
+    const version = await systemSettingsService.getSettingsVersion();
+    res.json({ success: true, version, routes });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
   }
@@ -247,6 +256,30 @@ export const getRouteToggleAudits = async (req: Request, res: Response) => {
   try {
     const audits = await systemSettingsService.getRouteToggleAudits(req.params.id);
     res.json({ success: true, data: audits });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+/**
+ * GET /system-settings/events
+ * Returns paginated operational runtime setting events (observability).
+ * Supports query params: limit, offset, eventType, searchKey, startDate, endDate
+ */
+export const getSettingEvents = async (req: Request, res: Response) => {
+  try {
+    const limit      = parseInt(String(req.query.limit  || "50"),  10);
+    const offset     = parseInt(String(req.query.offset || "0"),   10);
+    const eventType  = req.query.eventType  as string | undefined;
+    const searchKey  = req.query.searchKey  as string | undefined;
+    const startDate  = req.query.startDate  as string | undefined;
+    const endDate    = req.query.endDate    as string | undefined;
+
+    const result = await systemSettingEventService.getEvents({
+      limit, offset, eventType, searchKey, startDate, endDate,
+    });
+
+    res.json({ success: true, total: result.total, items: result.items });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
   }

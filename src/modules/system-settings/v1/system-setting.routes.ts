@@ -15,6 +15,7 @@ import {
   getRouteToggleAudits,
   createSetting,
   bulkToggleModule,
+  getSettingEvents,
 } from "./system-setting.controller";
 
 const router = Router();
@@ -33,6 +34,7 @@ router.use(authMiddleware, requireOwnerAccess);
  */
 // ─── System Settings (Static) ────────────────────────────────────────────────
 router.get   ("/audits",      getSettingAudits);
+router.get   ("/events",      getSettingEvents);
 router.get   ("/",            getAllSettings);
 router.post  ("/",            createSetting);
 router.patch ("/key/:key",    updateSettingByKey);

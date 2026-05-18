@@ -22,11 +22,23 @@ export class SystemSettingRepository {
   /**
    * Updates a setting value by ID.
    * Also stamps updatedById + lastChangedAt.
+   * Guards against FK violations by verifying the user exists first.
    */
   async updateById(id: string, value: string, updatedById: string) {
+    // Guard: only stamp updatedById if the user actually exists in the User table.
+    // This prevents FK constraint violations when the caller is a seed/system actor
+    // or when the admin account was created outside normal registration flow.
+    const userExists = updatedById
+      ? await prisma.user.findUnique({ where: { user_id: updatedById }, select: { user_id: true } })
+      : null;
+
     return prisma.systemSetting.update({
       where: { id },
-      data: { value, updatedById, lastChangedAt: new Date() },
+      data: {
+        value,
+        updatedById: userExists ? updatedById : null,
+        lastChangedAt: new Date(),
+      },
     });
   }
 
@@ -41,6 +53,8 @@ export class SystemSettingRepository {
     category?: "FEATURE" | "CRON" | "INTEGRATION" | "MAINTENANCE";
     groupKey?: string;
     isCritical?: boolean;
+    scopeType?: "GLOBAL" | "COMPANY" | "USER";
+    scopeId?: string;
   }) {
     return prisma.systemSetting.upsert({
       where:  { key: data.key },
@@ -53,6 +67,8 @@ export class SystemSettingRepository {
         category:    data.category ?? "FEATURE",
         groupKey:    data.groupKey,
         isCritical:  data.isCritical ?? false,
+        scopeType:   data.scopeType ?? "GLOBAL",
+        scopeId:     data.scopeId,
       },
     });
   }
@@ -87,7 +103,24 @@ export class SystemSettingRepository {
     changedById: string;
     reason?:     string;
   }) {
-    return prisma.systemSettingAudit.create({ data });
+    // Guard: verify the user exists to avoid FK violation on changedById
+    const userExists = data.changedById
+      ? await prisma.user.findUnique({ where: { user_id: data.changedById }, select: { user_id: true } })
+      : null;
+
+    // Prisma's XOR<CreateInput, UncheckedCreateInput> rejects `string | undefined`
+    // on optional FK fields (known upstream issue). `as any` is safe here — schema is correct.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return prisma.systemSettingAudit.create({
+      data: {
+        settingKey:  data.settingKey,
+        settingId:   data.settingId,
+        oldValue:    data.oldValue,
+        newValue:    data.newValue,
+        reason:      data.reason,
+        changedById: userExists ? data.changedById : undefined,
+      } as any,
+    });
   }
 }
 
